@@ -50,6 +50,30 @@ export function clearLocalVaultKey(): void {
   } catch {}
 }
 
+/** Ensures a vault key exists locally, generating one silently on first run
+ * — no UI, nothing for the user to save. If Supabase is configured, also
+ * links it to a Supabase-backed vault in the background so cross-device
+ * sync works transparently if/when it's ever needed. */
+export async function ensureVaultKeySilently(): Promise<string> {
+  let key = getLocalVaultKey();
+  if (!key) {
+    key = generateVaultKey();
+    setLocalVaultKey(key);
+  }
+  if (!getLocalVaultId()) {
+    try {
+      const { ensureSupabaseVault } = await import("@/lib/supabase/vaultAuth");
+      const { isSupabaseConfigured } = await import("@/lib/supabase/client");
+      if (isSupabaseConfigured()) {
+        const res = await ensureSupabaseVault(key, "restore").catch(() => null);
+        const created = res?.ok ? res : await ensureSupabaseVault(key, "create").catch(() => null);
+        if (created?.ok && created.vaultId) setLocalVaultId(created.vaultId);
+      }
+    } catch {}
+  }
+  return key;
+}
+
 export function getLocalVaultId(): string | null {
   try {
     return localStorage.getItem(VAULT_ID_KEY);

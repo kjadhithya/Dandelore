@@ -6,7 +6,7 @@ import { THEME_KEY, FONTS } from "@/lib/theme/tokens";
 import { hexToRgb } from "@/lib/theme/color";
 import { hydrateFromLocalDb, startLocalPersistence } from "@/lib/db/persistence";
 import { startSyncWorker } from "@/lib/sync/syncWorker";
-import { getLocalVaultId } from "@/lib/vaultkey/vaultKey";
+import { getLocalVaultId, ensureVaultKeySilently } from "@/lib/vaultkey/vaultKey";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { uploadAttachment } from "@/lib/supabase/attachments";
 import { Ribbon } from "./Ribbon";
@@ -27,7 +27,7 @@ export function VaultShell() {
   useEffect(() => {
     let stopPersistence: (() => void) | null = null;
     let stopSync: (() => void) | null = null;
-    hydrateFromLocalDb().then(() => {
+    Promise.all([ensureVaultKeySilently(), hydrateFromLocalDb()]).then(() => {
       setHydrated(true);
       stopPersistence = startLocalPersistence();
       stopSync = startSyncWorker();
