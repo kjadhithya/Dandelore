@@ -1,26 +1,316 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+* {
+  box-sizing: border-box;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
+  margin: 0;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #d8cdb4;
+  font-family: var(--font-ibm-plex-sans), system-ui, sans-serif;
+}
+
+a {
+  color: var(--accent-text, var(--accent, #b0623b));
+  text-decoration: none;
+}
+a:hover {
+  opacity: 0.82;
+}
+
+::selection {
+  background: var(--accent-sel, rgba(180, 106, 67, 0.28));
+}
+
+.vscroll::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.vscroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 105, 80, 0.32);
+  border-radius: 6px;
+}
+.vscroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes qs {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+textarea:focus,
+input:focus,
+select:focus {
+  outline: none;
+}
+
+/* ---------- theme tokens ---------- */
+.vault {
+  --desk1: #e4dac2;
+  --desk2: #d3c8ae;
+  --desk3: #cabd9f;
+  --bg: #faf5ea;
+  --panel: #efe7d5;
+  --chrome: #ece3d0;
+  --ribbon: #e6ddc9;
+  --input: #f7f1e4;
+  --active: #e0d6bf;
+  --code: #efe6d3;
+  --border: #ddd2bb;
+  --border-soft: #e6dcc7;
+  --edge: #c3b79a;
+  --ink: #3c3324;
+  --text: #6f6552;
+  --muted: #8a7f6a;
+  --faint: #a2977f;
+  --sage: #7d8a5f;
+}
+.vault[data-vtheme="light-warm"] {
+  --desk1: #e4dac2;
+  --desk2: #d3c8ae;
+  --desk3: #cabd9f;
+  --bg: #faf5ea;
+  --panel: #efe7d5;
+  --chrome: #ece3d0;
+  --ribbon: #e6ddc9;
+  --input: #f7f1e4;
+  --active: #e0d6bf;
+  --code: #efe6d3;
+  --border: #ddd2bb;
+  --border-soft: #e6dcc7;
+  --edge: #c3b79a;
+  --ink: #3c3324;
+  --text: #6f6552;
+  --muted: #8a7f6a;
+  --faint: #a2977f;
+  --sage: #7d8a5f;
+}
+.vault[data-vtheme="dark-warm"] {
+  --desk1: #17140f;
+  --desk2: #131009;
+  --desk3: #0e0c07;
+  --bg: #1d1b17;
+  --panel: #232019;
+  --chrome: #201d17;
+  --ribbon: #2a271f;
+  --input: #2a271f;
+  --active: #36322a;
+  --code: #2a271f;
+  --border: #38342b;
+  --border-soft: #312d25;
+  --edge: #47423a;
+  --ink: #ece4d4;
+  --text: #b8ad98;
+  --muted: #8f8674;
+  --faint: #736b5a;
+  --sage: #9db07c;
+}
+.vault[data-vtheme="light"] {
+  --desk1: #e6e6e6;
+  --desk2: #dadada;
+  --desk3: #cfcfcf;
+  --bg: #f7f7f7;
+  --panel: #eeeeee;
+  --chrome: #ececec;
+  --ribbon: #e8e8e8;
+  --input: #f9f9f9;
+  --active: #e3e3e3;
+  --code: #eeeeee;
+  --border: #dcdcdc;
+  --border-soft: #e6e6e6;
+  --edge: #d1d1d1;
+  --ink: #242424;
+  --text: #5c5c5c;
+  --muted: #878787;
+  --faint: #a6a6a6;
+  --sage: #6f8a6f;
+}
+.vault[data-vtheme="dark"] {
+  --desk1: #141414;
+  --desk2: #101010;
+  --desk3: #0c0c0c;
+  --bg: #1c1c1c;
+  --panel: #262626;
+  --chrome: #202020;
+  --ribbon: #2c2c2c;
+  --input: #242424;
+  --active: #333333;
+  --code: #242424;
+  --border: #363636;
+  --border-soft: #2c2c2c;
+  --edge: #404040;
+  --ink: #ececec;
+  --text: #b3b3b3;
+  --muted: #8a8a8a;
+  --faint: #6c6c6c;
+  --sage: #8fae8f;
+}
+
+/* ---------- live editor ---------- */
+.liveedit {
+  outline: none;
+}
+.liveedit .ln {
+  padding: 1px 0;
+  line-height: 1.75;
+  min-height: 1.6em;
+}
+.liveedit .ln .m {
+  font-size: 0;
+  letter-spacing: 0;
+}
+.liveedit .ln.active .m {
+  font-size: 0.92em;
+  opacity: 0.34;
+}
+.liveedit .ln.h1 {
+  font-family: var(--font-spectral), serif;
+  font-weight: 600;
+  font-size: 1.75em;
+  line-height: 1.2;
+  margin: 2px 0 4px;
+}
+.liveedit .ln.h2 {
+  font-family: var(--font-spectral), serif;
+  font-weight: 600;
+  font-size: 1.4em;
+  line-height: 1.25;
+  margin: 12px 0 3px;
+}
+.liveedit .ln.h3 {
+  font-family: var(--font-spectral), serif;
+  font-weight: 600;
+  font-size: 1.18em;
+  margin: 10px 0 2px;
+}
+.liveedit .ln.h4,
+.liveedit .ln.h5,
+.liveedit .ln.h6 {
+  font-family: var(--font-spectral), serif;
+  font-weight: 600;
+  font-size: 1.03em;
+  margin: 8px 0 2px;
+}
+.liveedit .ln.bullet {
+  padding-left: 1.35em;
+  position: relative;
+}
+.liveedit .ln.bullet::before {
+  content: "•";
+  position: absolute;
+  left: 0.35em;
+  color: var(--accent-text, var(--accent, #b0623b));
+}
+.liveedit .ln.task {
+  padding-left: 1.55em;
+  position: relative;
+}
+.liveedit .ln.task::before {
+  content: "☐";
+  position: absolute;
+  left: 0.05em;
+  color: var(--muted);
+  font-size: 1.05em;
+}
+.liveedit .ln.task.done::before {
+  content: "☑";
+  color: var(--accent-text, var(--accent, #b0623b));
+}
+.liveedit .ln.task.done .bt {
+  color: var(--faint);
+  text-decoration: line-through;
+}
+.liveedit .ln.ol {
+  padding-left: 1.5em;
+}
+.liveedit .ln.bq {
+  border-left: 3px solid var(--accent-text, var(--accent, #b0623b));
+  padding-left: 12px;
+  color: var(--text);
+  font-style: italic;
+  background: var(--active);
+  border-radius: 0 6px 6px 0;
+}
+.liveedit .ln.fence {
+  font-family: var(--font-ibm-plex-mono), monospace;
+  font-size: 0.86em;
+  color: var(--muted);
+  background: var(--code);
+  padding-left: 10px;
+}
+.liveedit .ln.hr {
+  color: transparent;
+  border-bottom: 1px solid var(--border-soft);
+  height: 0;
+  overflow: hidden;
+  margin: 12px 0;
+}
+.liveedit .wl {
+  color: var(--accent-text, var(--accent, #b0623b));
+  border-bottom: 1px solid rgba(176, 98, 59, 0.35);
+  cursor: pointer;
+}
+.liveedit .wl.missing {
+  color: var(--accent-faded, rgba(201, 138, 138, 0.55));
+  border-color: var(--accent-faded, rgba(201, 138, 138, 0.5));
+}
+.liveedit .exlink {
+  color: var(--accent-text, var(--accent, #b0623b));
+  cursor: pointer;
+}
+.liveedit .tag {
+  color: var(--accent-text, var(--accent, #b0623b));
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+.liveedit .tag:hover {
+  background: var(--active);
+  text-decoration: underline;
+}
+.readview [data-tag]:hover,
+.liveedit [data-tag]:hover {
+  text-decoration: underline;
+}
+.liveedit .ic {
+  background: var(--code);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: var(--font-ibm-plex-mono), monospace;
+  font-size: 0.88em;
+}
+.readview .wl {
+  color: var(--accent-text, var(--accent, #b0623b));
+  border-bottom: 1px solid rgba(176, 98, 59, 0.35);
+  cursor: pointer;
+}
+.readview .wl.missing {
+  color: var(--accent-faded, rgba(201, 138, 138, 0.55));
+}
+
+.resizer {
+  transition: background 0.15s;
+}
+.resizer .grip {
+  opacity: 0;
+  transition: opacity 0.12s;
+  pointer-events: none;
+}
+.resizer:hover {
+  background: var(--edge);
+}
+.resizer:hover .grip {
+  opacity: 1;
 }
