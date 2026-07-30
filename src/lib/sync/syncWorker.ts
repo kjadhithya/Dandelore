@@ -1,5 +1,5 @@
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
-import { getLocalVaultId } from "@/lib/vaultkey/vaultKey";
+import { getCurrentVaultId } from "@/lib/supabase/session";
 import { useVaultStore } from "@/lib/store/useVaultStore";
 import { localDb } from "@/lib/db/localDb";
 import { listNoteAttachments, downloadAttachment } from "@/lib/supabase/attachments";
@@ -213,7 +213,7 @@ function debounce<T extends (...args: never[]) => void>(fn: T, ms: number): T {
  * resolved yet — the app must keep working purely local-first in that case. */
 export function startSyncWorker(): () => void {
   if (!isSupabaseConfigured()) return () => {};
-  const vaultId = getLocalVaultId();
+  const vaultId = getCurrentVaultId();
   if (!vaultId) return () => {};
 
   let cancelled = false;

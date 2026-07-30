@@ -1,16 +1,15 @@
 -- Knowledge Vault — initial schema
 --
--- Identity model: there is no login UI. Each "Vault Key" the app generates
--- signs in via Supabase's normal email/password auth using a deterministic,
--- non-reversible synthetic email (see src/lib/vaultkey and
--- src/lib/supabase/vaultAuth.ts). That gives every vault a real
--- `auth.uid()`, so RLS below can scope everything to `vaults.owner_id`
--- without any custom Postgres session wiring.
+-- Identity model: standard Supabase email/password auth. Every signed-in
+-- user gets exactly one `vaults` row (owner_id = auth.uid()), and RLS below
+-- scopes every other table to that row via the `owns_vault()` helper.
 --
--- IMPORTANT setup step (not covered by this file): in the Supabase
--- dashboard, go to Authentication -> Providers -> Email and turn OFF
--- "Confirm email". Without that, signUp() will not return a usable session
--- immediately, since there is no real inbox behind the synthetic address.
+-- Setup steps this file does NOT cover (do these in the Supabase dashboard):
+-- - Authentication -> URL Configuration: add your app's origin(s)
+--   (e.g. http://localhost:3000 and your production domain) to "Redirect
+--   URLs" — required for the password-reset email link to work.
+-- - Authentication -> Emails: the built-in email sender has a very low rate
+--   limit; configure custom SMTP before relying on this for real users.
 
 create extension if not exists "pgcrypto";
 
@@ -20,7 +19,6 @@ create extension if not exists "pgcrypto";
 create table if not exists public.vaults (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null unique references auth.users (id) on delete cascade,
-  vault_key_hash text not null unique,
   created_at timestamptz not null default now()
 );
 
@@ -194,3 +192,22 @@ create policy "attachments_storage_delete_own" on storage.objects
     bucket_id = 'attachments'
     and public.owns_vault((storage.foldername(name))[1]::uuid)
   );
+
+-- ---------------------------------------------------------------------
+-- Table-level grants
+--
+-- RLS policies only filter *rows* — they don't grant access to the table
+-- at all. If "Automatically expose new tables" is off in your project's
+-- API settings (Supabase's own recommended setting), these tables are
+-- otherwise unreachable via supabase-js/PostgREST even though RLS is
+-- enabled. Every write in this app happens as a signed-in user, so only
+-- `authenticated` needs access — `anon` gets nothing.
+-- ---------------------------------------------------------------------
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.vaults to authenticated;
+grant select, insert, update, delete on public.folders to authenticated;
+grant select, insert, update, delete on public.categories to authenticated;
+grant select, insert, update, delete on public.notes to authenticated;
+grant select, insert, update, delete on public.note_revisions to authenticated;
+grant select, insert, update, delete on public.attachments to authenticated;
+grant select, insert, update, delete on public.vault_settings to authenticated;

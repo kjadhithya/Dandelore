@@ -47,3 +47,16 @@ export async function isLocalDbEmpty(): Promise<boolean> {
   const count = await localDb.notes.count();
   return count === 0;
 }
+
+/** Wipes the local cache — called on sign-out so a different account
+ * signing in on the same browser never sees the previous user's notes
+ * before a fresh sync/seed completes. */
+export async function clearLocalDb(): Promise<void> {
+  await Promise.all([
+    localDb.notes.clear(),
+    localDb.folders.clear(),
+    localDb.categories.clear(),
+    localDb.settings.clear(),
+    localDb.mutationQueue.clear(),
+  ]);
+}

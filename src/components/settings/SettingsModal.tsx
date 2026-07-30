@@ -1,15 +1,35 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useVaultStore } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
 import { THEMES, THEME_SWATCH, ACCENT_SWATCHES, FONT_OPTS } from "@/lib/theme/tokens";
 import { CloseIcon, ChevronDownSmall } from "@/components/icons/Icons";
 import { CheatsheetModal } from "./CheatsheetModal";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import { signOutSupabase } from "@/lib/supabase/vaultAuth";
+import { clearLocalDb } from "@/lib/db/localDb";
 import type { ThemeName } from "@/types/vault";
 
 export function SettingsModal() {
   const s = useVaultStore();
   const { accent, theme } = useDerivedTheme();
+  const [email, setEmail] = useState<string | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
+
+  useEffect(() => {
+    if (!s.settingsOpen || !isSupabaseConfigured()) return;
+    getSupabase()!
+      .auth.getUser()
+      .then(({ data }) => setEmail(data.user?.email ?? null));
+  }, [s.settingsOpen]);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    await signOutSupabase();
+    await clearLocalDb();
+    window.location.reload();
+  }
+
   if (!s.settingsOpen) return null;
 
   return (
@@ -106,6 +126,23 @@ export function SettingsModal() {
               </label>
             </div>
           </div>
+          {email && (
+            <>
+              <div style={{ height: 1, background: "var(--border-soft)" }} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--faint)" }}>Account</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ flex: 1, fontSize: 13, color: "var(--muted)" }}>{email}</span>
+                  <div
+                    onClick={signingOut ? undefined : handleSignOut}
+                    style={{ cursor: signingOut ? "default" : "pointer", opacity: signingOut ? 0.6 : 1, fontSize: 13, color: "#c15a3d", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 12px" }}
+                  >
+                    {signingOut ? "Signing out…" : "Sign out"}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
           <div style={{ height: 1, background: "var(--border-soft)" }} />
           <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
             <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--faint)" }}>Vault data</span>

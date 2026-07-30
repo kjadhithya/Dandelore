@@ -6,7 +6,7 @@ import { THEME_KEY, FONTS } from "@/lib/theme/tokens";
 import { hexToRgb } from "@/lib/theme/color";
 import { hydrateFromLocalDb, startLocalPersistence } from "@/lib/db/persistence";
 import { startSyncWorker } from "@/lib/sync/syncWorker";
-import { getLocalVaultId, ensureVaultKeySilently } from "@/lib/vaultkey/vaultKey";
+import { getCurrentVaultId } from "@/lib/supabase/session";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { uploadAttachment } from "@/lib/supabase/attachments";
 import { Ribbon } from "./Ribbon";
@@ -27,7 +27,7 @@ export function VaultShell() {
   useEffect(() => {
     let stopPersistence: (() => void) | null = null;
     let stopSync: (() => void) | null = null;
-    Promise.all([ensureVaultKeySilently(), hydrateFromLocalDb()]).then(() => {
+    hydrateFromLocalDb().then(() => {
       setHydrated(true);
       stopPersistence = startLocalPersistence();
       stopSync = startSyncWorker();
@@ -147,7 +147,7 @@ export function VaultShell() {
           ).then((results) => {
             const noteId = s.curId();
             s.attachFiles(results);
-            const vaultId = getLocalVaultId();
+            const vaultId = getCurrentVaultId();
             if (vaultId && noteId && isSupabaseConfigured()) {
               results.forEach((f) => uploadAttachment(vaultId, noteId, f));
             }

@@ -1,5 +1,10 @@
 import { VaultShell } from "@/components/shell/VaultShell";
+import { AuthGate } from "@/components/auth/AuthGate";
 
 export default function Home() {
-  return <VaultShell />;
+  return (
+    <AuthGate>
+      <VaultShell />
+    </AuthGate>
+  );
 }
