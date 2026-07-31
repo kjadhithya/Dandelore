@@ -14,6 +14,11 @@ export interface ReadingColors {
 
 function inline(s: string, atts: Record<string, Attachment>, hasNote: TitleResolver, C: ReadingColors): string {
   s = esc(s);
+  s = s.replace(/(?<!\()\bhttps?:\/\/[^\s)\]]+/g, (url) => {
+    const trimmed = url.replace(/[.,;:!?]+$/, "");
+    const trailing = url.slice(trimmed.length);
+    return '<a class="exlink" data-ext="1" href="' + trimmed + '" target="_blank">' + trimmed + "</a>" + trailing;
+  });
   s = s.replace(
     /`([^`]+)`/g,
     '<code style="background:' +

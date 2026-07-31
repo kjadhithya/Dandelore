@@ -21,6 +21,7 @@ export interface EditorEngineDeps {
   onOpenSearch: (q: string) => void;
   onUndo: () => void;
   onRedo: () => void;
+  onPasteFiles: (files: File[]) => void;
   copyText: (text: string) => void;
   accentText: string;
   codeColor: string;
@@ -71,6 +72,7 @@ export class EditorEngine {
   }
 
   attach(ed: HTMLDivElement) {
+    ed.addEventListener("paste", (e) => this.onPaste(e));
     ed.addEventListener("input", (e) => this.onInput(e as InputEvent));
     ed.addEventListener("keydown", (e) => this.onKeydown(e));
     ed.addEventListener("keyup", () => this.updateActive());
@@ -203,6 +205,26 @@ export class EditorEngine {
 
   commit() {
     this.deps.onContentChange(this.serialize());
+  }
+
+  onPaste(e: ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (const item of Array.from(items)) {
+      if (item.kind === "file") {
+        const f = item.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    // Only intercept when the clipboard actually carries file data (an
+    // image copied from elsewhere, a screenshot, etc). Plain text — including
+    // a pasted URL — falls through to the normal insertFromPaste input event,
+    // which already renders bare links via inlineLive.
+    if (files.length) {
+      e.preventDefault();
+      this.deps.onPasteFiles(files);
+    }
   }
 
   onInput(e: InputEvent) {

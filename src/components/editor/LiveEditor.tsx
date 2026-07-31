@@ -4,6 +4,7 @@ import { EditorEngine, type PopupState } from "@/lib/editor/EditorEngine";
 import { useVaultStore, noteTags, copyText } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
 import { FONTS } from "@/lib/theme/tokens";
+import { attachFilesToCurrentNote } from "@/lib/vault/attachFiles";
 import type { Note } from "@/types/vault";
 
 export function LiveEditor({ note }: { note: Note }) {
@@ -51,6 +52,7 @@ export function LiveEditor({ note }: { note: Note }) {
       onOpenSearch: openSearch,
       onUndo: undo,
       onRedo: redo,
+      onPasteFiles: (files) => attachFilesToCurrentNote(files),
       copyText,
       accentText,
       codeColor: "var(--code)",

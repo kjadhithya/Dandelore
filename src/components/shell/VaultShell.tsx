@@ -6,9 +6,7 @@ import { THEME_KEY, FONTS } from "@/lib/theme/tokens";
 import { hexToRgb } from "@/lib/theme/color";
 import { hydrateFromLocalDb, startLocalPersistence } from "@/lib/db/persistence";
 import { startSyncWorker } from "@/lib/sync/syncWorker";
-import { getCurrentVaultId } from "@/lib/supabase/session";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
-import { uploadAttachment } from "@/lib/supabase/attachments";
+import { attachFilesToCurrentNote } from "@/lib/vault/attachFiles";
 import { Ribbon } from "./Ribbon";
 import { Sidebar } from "./Sidebar";
 import { MainPane } from "./MainPane";
@@ -199,23 +197,7 @@ export function VaultShell() {
         onChange={(e) => {
           const files = Array.from(e.target.files || []);
           if (!files.length) return;
-          Promise.all(
-            files.map(
-              (f) =>
-                new Promise<{ name: string; type: string; dataUrl: string }>((resolve) => {
-                  const r = new FileReader();
-                  r.onload = () => resolve({ name: f.name, type: f.type || "", dataUrl: String(r.result) });
-                  r.readAsDataURL(f);
-                }),
-            ),
-          ).then((results) => {
-            const noteId = s.curId();
-            s.attachFiles(results);
-            const vaultId = getCurrentVaultId();
-            if (vaultId && noteId && isSupabaseConfigured()) {
-              results.forEach((f) => uploadAttachment(vaultId, noteId, f));
-            }
-          });
+          attachFilesToCurrentNote(files);
           e.target.value = "";
         }}
       />

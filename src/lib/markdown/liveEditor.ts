@@ -9,6 +9,14 @@ export type TitleResolver = (title: string) => boolean;
 
 export function inlineLive(s: string, hasNote: TitleResolver): string {
   s = esc(s);
+  // Bare URLs auto-link, before any other inline syntax runs — the negative
+  // lookbehind skips a URL right after "(" so it's left alone for the
+  // `[text](url)` pass below instead of getting double-wrapped.
+  s = s.replace(/(?<!\()\bhttps?:\/\/[^\s)\]]+/g, (url) => {
+    const trimmed = url.replace(/[.,;:!?]+$/, "");
+    const trailing = url.slice(trimmed.length);
+    return '<a class="exlink" data-ext="1" href="' + trimmed + '">' + trimmed + "</a>" + trailing;
+  });
   s = s.replace(
     /`([^`]+)`/g,
     '<span class="m">`</span><code class="ic">$1</code><span class="m">`</span>',
