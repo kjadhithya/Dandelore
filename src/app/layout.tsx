@@ -22,7 +22,7 @@ const spectral = Spectral({
 });
 
 export const metadata: Metadata = {
-  title: "Knowledge Vault",
+  title: "Dandelore",
   description: "A personal, cloud-synced knowledge base.",
 };
 

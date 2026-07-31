@@ -1,19 +1,11 @@
 import { localDb, isLocalDbEmpty } from "./localDb";
 import { useVaultStore } from "@/lib/store/useVaultStore";
-import { makeSeedNotes, DEFAULT_FOLDERS, DEFAULT_CATEGORIES } from "@/lib/seed";
 
 let persistenceStarted = false;
 
 export async function hydrateFromLocalDb(): Promise<void> {
   const empty = await isLocalDbEmpty();
-  if (empty) {
-    // First run on this device: seed IndexedDB with the starter vault content.
-    const notes = makeSeedNotes();
-    await localDb.notes.bulkPut(notes);
-    await localDb.folders.bulkPut(DEFAULT_FOLDERS.map((name) => ({ name, parent: null })));
-    await localDb.categories.bulkPut(DEFAULT_CATEGORIES.map((name) => ({ name })));
-    return;
-  }
+  if (empty) return; // first run on this device: nothing to load, vault starts blank
 
   const [notes, folders, categories, settingsRows] = await Promise.all([
     localDb.notes.toArray(),

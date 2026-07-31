@@ -9,7 +9,7 @@ import type {
   AppFontName,
   SortKey,
 } from "@/types/vault";
-import { makeSeedNotes, DEFAULT_FOLDERS, DEFAULT_CATEGORIES, TODAY } from "@/lib/seed";
+import { TODAY } from "@/lib/seed";
 
 function newId(): string {
   return "n" + Date.now() + Math.random().toString(36).slice(2, 6);
@@ -260,20 +260,21 @@ export interface VaultStore extends VaultState {
   closeAllMenus: () => void;
   openCheat: () => void;
   closeCheat: () => void;
+  resetVaultContent: () => void;
 }
 
 export const useVaultStore = create<VaultStore>()((set, get) => ({
-  notes: makeSeedNotes(),
-  folderList: [...DEFAULT_FOLDERS],
+  notes: [],
+  folderList: [],
   folderParents: {},
   folderRenaming: null,
   folderRenameDraft: "",
   folderCtx: null,
   draggingFolder: null,
 
-  categories: [...DEFAULT_CATEGORIES],
+  categories: [],
 
-  tabs: [mkNoteTab("prd"), mkNoteTab("road")],
+  tabs: [mkTab({ kind: "home" })],
   active: 0,
   split: null,
   splitReading: false,
@@ -1221,6 +1222,29 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     }),
   openCheat: () => set({ cheatOpen: true }),
   closeCheat: () => set({ cheatOpen: false }),
+  resetVaultContent: () =>
+    set({
+      notes: [],
+      folderList: [],
+      folderParents: {},
+      categories: [],
+      tabs: [mkTab({ kind: "home" })],
+      active: 0,
+      split: null,
+      lastPane: "main",
+      selectedIds: [],
+      selectAnchor: null,
+      renaming: null,
+      folderRenaming: null,
+      ctxMenu: null,
+      catCtx: null,
+      folderCtx: null,
+      bulkCtx: null,
+      expanded: {},
+      searchQuery: "",
+      calSelected: TODAY,
+      settingsOpen: false,
+    }),
 }));
 
 export function downloadFile(name: string, text: string, type?: string) {

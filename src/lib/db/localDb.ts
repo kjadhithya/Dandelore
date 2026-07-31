@@ -60,3 +60,16 @@ export async function clearLocalDb(): Promise<void> {
     localDb.mutationQueue.clear(),
   ]);
 }
+
+/** Wipes just the vault content (notes/folders/categories) — used by the
+ * "Clear vault" action in Settings. Leaves UI prefs (theme, sort, etc.)
+ * alone, and clears the offline mutation queue so nothing pre-clear
+ * replays back in once reconnected. */
+export async function clearVaultContent(): Promise<void> {
+  await Promise.all([
+    localDb.notes.clear(),
+    localDb.folders.clear(),
+    localDb.categories.clear(),
+    localDb.mutationQueue.clear(),
+  ]);
+}
