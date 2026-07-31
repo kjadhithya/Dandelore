@@ -15,7 +15,7 @@ function newId(): string {
   return "n" + Date.now() + Math.random().toString(36).slice(2, 6);
 }
 
-function mkTab(view: View): TabState {
+export function mkTab(view: View): TabState {
   return { hist: [view], hi: 0 };
 }
 function mkNoteTab(id: string): TabState {

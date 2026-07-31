@@ -38,6 +38,10 @@ export class EditorEngine {
   acLine: HTMLDivElement | null = null;
   acCol = 0;
   acQuery = "";
+  // Caret position right after a picked tag/link — lets detectLink() ignore
+  // the spurious re-check that follows a pick (e.g. the keyup after Enter)
+  // without the caret having actually moved or new text being typed.
+  lastPick: { line: HTMLDivElement; col: number } | null = null;
   deps: EditorEngineDeps;
 
   constructor(deps: EditorEngineDeps) {
@@ -206,8 +210,8 @@ export class EditorEngine {
     const it = e.inputType || "";
     if (it === "insertFromPaste" || it === "insertFromDrop") {
       this.rebuildAll();
-      this.commit();
       this.detectLink();
+      this.commit();
       return;
     }
     const ci = this.caretInfo();
@@ -221,8 +225,11 @@ export class EditorEngine {
     this.setActive(ci.line);
     this.setCol(ci.line, ci.col);
     this.maybeAutocloseFence(ci.line);
-    this.commit();
+    // Detect before commit: suggestion sources read note content from the
+    // store, and committing first would make the tag/link currently being
+    // typed already "exist" (it'd match itself in the freshly-committed text).
     this.detectLink();
+    this.commit();
   }
 
   rebuildAll() {
@@ -425,6 +432,12 @@ export class EditorEngine {
       if (this.popup) this.closePopup();
       return;
     }
+    if (this.lastPick && ci.line === this.lastPick.line && ci.col === this.lastPick.col) {
+      this.lastPick = null;
+      if (this.popup) this.closePopup();
+      return;
+    }
+    this.lastPick = null;
     const text = ci.line.textContent || "";
     const before = text.slice(0, ci.col);
     const lastOpen = before.lastIndexOf("[[");
@@ -473,6 +486,7 @@ export class EditorEngine {
     this.updateLine(line, nt);
     this.setActive(line);
     this.setCol(line, caret);
+    this.lastPick = { line, col: caret };
     this.ed?.focus();
     this.commit();
   }
@@ -496,6 +510,7 @@ export class EditorEngine {
     this.updateLine(line, nt);
     this.setActive(line);
     this.setCol(line, caret);
+    this.lastPick = { line, col: caret };
     this.ed?.focus();
     this.commit();
     this.deps.onPickLink(title);

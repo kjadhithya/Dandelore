@@ -124,21 +124,9 @@ function PaneContent({ split }: { split?: boolean }) {
   return <EmptyView />;
 }
 
-function showNavBarFor(kind: string) {
-  return kind === "graph" || kind === "journal" || kind === "categories" || kind === "home";
-}
-
 export function MainPane() {
   const s = useVaultStore();
   const isMobile = useIsMobile();
-  const tab = s.tabs[s.active];
-  const view = tab ? tab.hist[tab.hi] : null;
-  const kind = view?.kind ?? "empty";
-
-  const splitTab = s.split?.tabs[s.split.active];
-  const splitView = splitTab ? splitTab.hist[splitTab.hi] : null;
-  const splitKind = splitView?.kind ?? "empty";
-
   const isDown = s.split?.dir === "down";
   const showSplit = !!s.split && !isMobile;
 
@@ -155,7 +143,7 @@ export function MainPane() {
     >
       <div onClick={() => s.setMainPane()} style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <TabBar />
-        {showNavBarFor(kind) && <NavBar />}
+        <NavBar />
         <PaneContent />
       </div>
 
@@ -203,7 +191,7 @@ export function MainPane() {
             style={{ flex: `0 0 ${100 - s.splitSize}%`, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--bg)" }}
           >
             <TabBar split />
-            {showNavBarFor(splitKind) && <NavBar split />}
+            <NavBar split />
             <PaneContent split />
           </div>
         </>

@@ -1,7 +1,30 @@
 import { localDb, isLocalDbEmpty } from "./localDb";
-import { useVaultStore } from "@/lib/store/useVaultStore";
+import { useVaultStore, mkTab } from "@/lib/store/useVaultStore";
+import type { TabState } from "@/types/vault";
 
 let persistenceStarted = false;
+
+/** Drops history entries pointing at notes that no longer exist, and falls
+ * back to a single home tab if nothing valid survives — used to restore the
+ * last-open tab(s) on reload without resurrecting dangling note references. */
+function sanitizeTabs(rawTabs: unknown, rawActive: unknown, validIds: Set<string>): { tabs: TabState[]; active: number } {
+  const fallback = { tabs: [mkTab({ kind: "home" })], active: 0 };
+  if (!Array.isArray(rawTabs) || !rawTabs.length) return fallback;
+  const wantActive = typeof rawActive === "number" ? rawActive : 0;
+  const cleaned: TabState[] = [];
+  let mappedActive = 0;
+  rawTabs.forEach((t, i) => {
+    const hist = t && Array.isArray((t as TabState).hist) ? (t as TabState).hist : null;
+    if (!hist) return;
+    const validHist = hist.filter((v) => v && v.kind && (v.kind !== "note" || (v.id && validIds.has(v.id))));
+    if (!validHist.length) return;
+    const hi = Math.min(Math.max(0, (t as TabState).hi ?? 0), validHist.length - 1);
+    if (i === wantActive) mappedActive = cleaned.length;
+    cleaned.push({ hist: validHist, hi });
+  });
+  if (!cleaned.length) return fallback;
+  return { tabs: cleaned, active: Math.min(mappedActive, cleaned.length - 1) };
+}
 
 export async function hydrateFromLocalDb(): Promise<void> {
   const empty = await isLocalDbEmpty();
@@ -19,12 +42,15 @@ export async function hydrateFromLocalDb(): Promise<void> {
     folderParents[f.name] = f.parent;
   });
   const settings = Object.fromEntries(settingsRows.map((r) => [r.key, r.value])) as Record<string, unknown>;
+  const { tabs, active } = sanitizeTabs(settings.tabs, settings.active, new Set(notes.map((n) => n.id)));
 
   useVaultStore.setState({
     notes,
     folderList: folders.map((f) => f.name),
     folderParents,
     categories: categories.map((c) => c.name),
+    tabs,
+    active,
     ...(typeof settings.sort === "string" ? { sort: settings.sort as never } : {}),
     ...(typeof settings.leftWidth === "number" ? { leftWidth: settings.leftWidth } : {}),
   });
@@ -63,6 +89,13 @@ async function persistSettings(sort: string, leftWidth: number) {
   ]);
 }
 
+async function persistTabs(tabs: TabState[], active: number) {
+  await localDb.settings.bulkPut([
+    { key: "tabs", value: tabs },
+    { key: "active", value: active },
+  ]);
+}
+
 export function startLocalPersistence(): () => void {
   if (persistenceStarted) return () => {};
   persistenceStarted = true;
@@ -71,6 +104,7 @@ export function startLocalPersistence(): () => void {
   const debouncedPersistFolders = debounce(persistFolders, 500);
   const debouncedPersistCategories = debounce(persistCategories, 500);
   const debouncedPersistSettings = debounce(persistSettings, 500);
+  const debouncedPersistTabs = debounce(persistTabs, 500);
 
   let prev = useVaultStore.getState();
   const unsub = useVaultStore.subscribe((state) => {
@@ -81,6 +115,9 @@ export function startLocalPersistence(): () => void {
     if (state.categories !== prev.categories) debouncedPersistCategories(state.categories);
     if (state.sort !== prev.sort || state.leftWidth !== prev.leftWidth) {
       debouncedPersistSettings(state.sort, state.leftWidth);
+    }
+    if (state.tabs !== prev.tabs || state.active !== prev.active) {
+      debouncedPersistTabs(state.tabs, state.active);
     }
     prev = state;
   });
