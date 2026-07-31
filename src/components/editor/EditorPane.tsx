@@ -12,6 +12,8 @@ import {
   BacklinksIcon,
   SplitRightIcon,
   SplitDownIcon,
+  BackIcon,
+  ForwardIcon,
 } from "@/components/icons/Icons";
 import type { Note } from "@/types/vault";
 
@@ -48,6 +50,10 @@ function IconBtn({ title, onClick, active, children }: { title: string; onClick:
 }
 
 interface Side {
+  canBack: boolean;
+  canForward: boolean;
+  goBack: () => void;
+  goForward: () => void;
   reading: boolean;
   toggleReading: () => void;
   metaOpen: boolean;
@@ -90,6 +96,20 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <div style={{ flex: "0 0 auto", padding: "7px 20px", borderBottom: "1px solid var(--border-soft)", display: "flex", alignItems: "center", gap: 2 }}>
+        <div
+          onClick={side.canBack ? side.goBack : undefined}
+          title="Back"
+          style={{ width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", ...(side.canBack ? { cursor: "pointer", color: "var(--muted)" } : { color: "var(--border)", pointerEvents: "none" }) }}
+        >
+          <BackIcon />
+        </div>
+        <div
+          onClick={side.canForward ? side.goForward : undefined}
+          title="Forward"
+          style={{ width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", ...(side.canForward ? { cursor: "pointer", color: "var(--muted)" } : { color: "var(--border)", pointerEvents: "none" }) }}
+        >
+          <ForwardIcon />
+        </div>
         <div style={{ flex: 1 }} />
         <IconBtn title={side.reading ? "Edit" : "Reading view"} onClick={side.toggleReading}>
           <EyeIcon on={side.reading} />
@@ -286,7 +306,12 @@ export function useMainSide(): Side {
   const s = useVaultStore();
   const isMobile = useIsMobile();
   const cur = s.cur();
+  const tab = s.tabs[s.active];
   return {
+    canBack: !!(tab && tab.hi > 0),
+    canForward: !!(tab && tab.hi < tab.hist.length - 1),
+    goBack: s.goBack,
+    goForward: s.goForward,
     reading: s.reading,
     toggleReading: s.toggleReading,
     metaOpen: s.metaOpen,
@@ -324,7 +349,12 @@ export function useSplitSide(): Side {
   const s = useVaultStore();
   const id = s.splitCurId();
   const n = id ? s.notes.find((x) => x.id === id) : undefined;
+  const tab = s.split?.tabs[s.split.active];
   return {
+    canBack: !!(tab && tab.hi > 0),
+    canForward: !!(tab && tab.hi < tab.hist.length - 1),
+    goBack: s.splitBack,
+    goForward: s.splitForward,
     reading: s.splitReading,
     toggleReading: s.toggleSplitReading,
     metaOpen: s.splitMetaOpen,

@@ -117,11 +117,13 @@ function PaneContent({ split }: { split?: boolean }) {
     if (!note) return <EmptyView />;
     return <EditorPane note={note} side={split ? splitSide : mainSide} />;
   }
-  if (kind === "graph") return <GraphView split={split} />;
-  if (kind === "journal") return <JournalView />;
-  if (kind === "categories") return <CategoriesView />;
-  if (kind === "home") return <HomeView split={split} />;
-  return <EmptyView />;
+  // Notes get back/forward built into their own toolbar; every other view
+  // needs the standalone NavBar since it has no toolbar of its own.
+  if (kind === "graph") return (<><NavBar split={split} /><GraphView split={split} /></>);
+  if (kind === "journal") return (<><NavBar split={split} /><JournalView /></>);
+  if (kind === "categories") return (<><NavBar split={split} /><CategoriesView /></>);
+  if (kind === "home") return (<><NavBar split={split} /><HomeView split={split} /></>);
+  return (<><NavBar split={split} /><EmptyView /></>);
 }
 
 export function MainPane() {
@@ -143,7 +145,6 @@ export function MainPane() {
     >
       <div onClick={() => s.setMainPane()} style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <TabBar />
-        <NavBar />
         <PaneContent />
       </div>
 
@@ -191,7 +192,6 @@ export function MainPane() {
             style={{ flex: `0 0 ${100 - s.splitSize}%`, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--bg)" }}
           >
             <TabBar split />
-            <NavBar split />
             <PaneContent split />
           </div>
         </>
