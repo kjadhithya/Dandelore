@@ -83,7 +83,7 @@ function snippetOf(n: Note): string {
 
 export function Sidebar() {
   const s = useVaultStore();
-  const { accent, accentText } = useDerivedTheme();
+  const { accent } = useDerivedTheme();
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const isMobile = useIsMobile();
   const closeIfMobile = () => {
@@ -104,12 +104,6 @@ export function Sidebar() {
   );
 
   const curId = s.curId();
-
-  function noteDot(id: string) {
-    if (s.selectedIds.includes(id)) return accentText;
-    if (id === curId) return accentText;
-    return "var(--edge)";
-  }
 
   function handleRowClick(e: React.MouseEvent, id: string) {
     s.rowClick(id, { meta: e.metaKey || e.ctrlKey, shift: e.shiftKey }, visibleOrder);
@@ -164,11 +158,17 @@ export function Sidebar() {
           borderRadius: 6,
           cursor: "pointer",
           fontSize: 13,
+          fontWeight: note.id === curId ? 600 : 400,
           color: note.id === curId ? "var(--ink)" : "var(--text)",
-          background: s.selectedIds.includes(note.id) ? "var(--active)" : hover ? "var(--ribbon)" : "transparent",
+          background: s.selectedIds.includes(note.id)
+            ? "var(--active)"
+            : note.id === curId
+              ? "var(--ribbon)"
+              : hover
+                ? "var(--ribbon)"
+                : "transparent",
         }}
       >
-        <span style={{ width: 5, height: 5, borderRadius: "50%", background: noteDot(note.id), flex: "0 0 auto" }} />
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{note.title || "Untitled"}</span>
       </div>
     );
