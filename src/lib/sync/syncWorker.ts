@@ -220,12 +220,36 @@ async function replayQueue(vaultId: string) {
   }
 }
 
-function debounce<T extends (...args: never[]) => void>(fn: T, ms: number): T {
+/** A debounced fn backed by a plain setTimeout has no durability — if the
+ * tab is backgrounded or navigated away before the timer fires, the pending
+ * call is silently lost. `.flush()` lets callers force it through right
+ * away (wired to visibilitychange/pagehide below) instead of losing edits
+ * whenever a device switches apps or closes the tab mid-debounce. */
+function debounce<T extends (...args: never[]) => void>(fn: T, ms: number): { run: T; flush: () => void } {
   let t: ReturnType<typeof setTimeout> | null = null;
-  return ((...args: never[]) => {
+  let pending: never[] | null = null;
+  const run = ((...args: never[]) => {
+    pending = args;
     if (t) clearTimeout(t);
-    t = setTimeout(() => fn(...args), ms);
+    t = setTimeout(() => {
+      t = null;
+      const a = pending;
+      pending = null;
+      if (a) fn(...a);
+    }, ms);
   }) as T;
+  const flush = () => {
+    if (t) {
+      clearTimeout(t);
+      t = null;
+    }
+    if (pending) {
+      const a = pending;
+      pending = null;
+      fn(...a);
+    }
+  };
+  return { run, flush };
 }
 
 /** No-ops entirely when Supabase isn't configured or no vault has been
@@ -265,7 +289,7 @@ export function startSyncWorker(onReady?: () => void): () => void {
       const prevById = new Map(prevNotes.map((n) => [n.id, n]));
       const currentIds = new Set(state.notes.map((n) => n.id));
       state.notes.forEach((n) => {
-        if (prevById.get(n.id) !== n) debouncedPushNote(n);
+        if (prevById.get(n.id) !== n) debouncedPushNote.run(n);
       });
       prevById.forEach((_n, id) => {
         if (!currentIds.has(id)) pushNoteDelete(vaultId, id);
@@ -273,14 +297,27 @@ export function startSyncWorker(onReady?: () => void): () => void {
       prevNotes = state.notes;
     }
     if (state.folderList !== prevFolderList) {
-      debouncedPushFolders(state.folderList, state.folderParents);
+      debouncedPushFolders.run(state.folderList, state.folderParents);
       prevFolderList = state.folderList;
     }
     if (state.categories !== prevCategories) {
-      debouncedPushCategories(state.categories);
+      debouncedPushCategories.run(state.categories);
       prevCategories = state.categories;
     }
   });
+
+  // Backgrounding the tab (switching apps on mobile, switching tabs, closing)
+  // must not silently drop a pending debounced push — flush it immediately.
+  const flushPending = () => {
+    debouncedPushNote.flush();
+    debouncedPushFolders.flush();
+    debouncedPushCategories.flush();
+  };
+  const onVisibilityChange = () => {
+    if (document.visibilityState === "hidden") flushPending();
+  };
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  window.addEventListener("pagehide", flushPending);
 
   async function init() {
     await pullAndMerge(vaultId!);
@@ -322,8 +359,11 @@ export function startSyncWorker(onReady?: () => void): () => void {
 
   return () => {
     cancelled = true;
+    flushPending();
     unsubscribeStore();
     window.removeEventListener("online", onOnline);
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+    window.removeEventListener("pagehide", flushPending);
     if (channel) getSupabase()?.removeChannel(channel);
   };
 }
