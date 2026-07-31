@@ -2,9 +2,11 @@
 import React, { useMemo } from "react";
 import { useVaultStore, linksOf } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
 export function RightPanel() {
   const s = useVaultStore();
+  const isMobile = useIsMobile();
   const { accentText, accentFadedRgba } = useDerivedTheme();
   const focusOnSplit = s.lastPane === "split" && !!s.split;
   const splitId = s.splitCurId();
@@ -31,11 +33,11 @@ export function RightPanel() {
   const showRight = s.showRight && !!rightNote;
   if (!showRight) return null;
 
-  return (
-    <div
-      className="vscroll"
-      style={{ width: 262, flex: "0 0 auto", background: "var(--panel)", borderLeft: "1px solid var(--border)", overflowY: "auto", padding: "16px 16px 22px" }}
-    >
+  // Split view is disabled on mobile, so backlinks are always driven off the main pane there.
+  const closeMobile = () => s.toggleRightMain();
+
+  const content = (
+    <>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 9 }}>
         <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--faint)" }}>Backlinks</span>
         <span style={{ fontSize: 10, color: "#fff", background: "var(--faint)", borderRadius: 20, padding: "0 6px", lineHeight: "15px" }}>{backlinks.length}</span>
@@ -84,6 +86,40 @@ export function RightPanel() {
       ) : (
         <div style={{ fontSize: 12.5, color: "var(--faint)", fontStyle: "italic" }}>No outgoing links.</div>
       )}
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <div onClick={closeMobile} style={{ position: "fixed", inset: 0, background: "rgba(58,48,32,0.34)", zIndex: 66, display: "flex", alignItems: "flex-end" }}>
+        <div
+          className="vscroll"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: "100%",
+            maxHeight: "70vh",
+            background: "var(--panel)",
+            borderRadius: "16px 16px 0 0",
+            boxShadow: "0 -18px 44px -12px rgba(25,20,12,.4)",
+            overflowY: "auto",
+            padding: "10px 16px calc(18px + env(safe-area-inset-bottom, 0px))",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "center", padding: "4px 0 10px" }}>
+            <span style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border)" }} />
+          </div>
+          {content}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="vscroll"
+      style={{ width: 262, flex: "0 0 auto", background: "var(--panel)", borderLeft: "1px solid var(--border)", overflowY: "auto", padding: "16px 16px 22px" }}
+    >
+      {content}
     </div>
   );
 }

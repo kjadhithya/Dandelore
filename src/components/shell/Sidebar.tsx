@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { useVaultStore, noteTags } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { buildFolderRows, rootNotes as computeRootNotes } from "@/lib/sidebarModel";
 import {
   NewNoteIcon,
@@ -35,10 +36,10 @@ const SEARCH_OPTIONS: [string, string][] = [
   ["section:", "keywords under same heading"],
 ];
 
-function toolBtnStyle(active: boolean, hover: boolean): React.CSSProperties {
+function toolBtnStyle(active: boolean, hover: boolean, size: number): React.CSSProperties {
   return {
-    width: 28,
-    height: 28,
+    width: size,
+    height: size,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -61,13 +62,14 @@ function ToolButton({
   children: React.ReactNode;
 }) {
   const [hover, setHover] = useState(false);
+  const isMobile = useIsMobile();
   return (
     <div
       title={title}
       onClick={onClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      style={toolBtnStyle(!!active, hover)}
+      style={toolBtnStyle(!!active, hover, isMobile ? 40 : 28)}
     >
       {children}
     </div>
@@ -83,6 +85,10 @@ export function Sidebar() {
   const s = useVaultStore();
   const { accent, accentText } = useDerivedTheme();
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const isMobile = useIsMobile();
+  const closeIfMobile = () => {
+    if (isMobile) s.toggleLeft();
+  };
 
   const folderRows = useMemo(
     () => buildFolderRows(s.folderList, s.folderParents, s.notes, s.expanded, s.sort),
@@ -107,6 +113,7 @@ export function Sidebar() {
 
   function handleRowClick(e: React.MouseEvent, id: string) {
     s.rowClick(id, { meta: e.metaKey || e.ctrlKey, shift: e.shiftKey }, visibleOrder);
+    closeIfMobile();
   }
 
   function NoteRow({ note }: { note: Note }) {
@@ -152,7 +159,8 @@ export function Sidebar() {
           display: "flex",
           alignItems: "center",
           gap: 8,
-          padding: "6px 9px",
+          padding: isMobile ? "11px 9px" : "6px 9px",
+          minHeight: isMobile ? 40 : undefined,
           borderRadius: 6,
           cursor: "pointer",
           fontSize: 13,
@@ -226,7 +234,8 @@ export function Sidebar() {
           display: "flex",
           alignItems: "center",
           gap: 6,
-          padding: `6px ${9 + depth * 13}px 6px ${8 + depth * 13}px`,
+          padding: `${isMobile ? 11 : 6}px ${9 + depth * 13}px ${isMobile ? 11 : 6}px ${8 + depth * 13}px`,
+          minHeight: isMobile ? 40 : undefined,
           borderRadius: 6,
           cursor: "pointer",
           fontSize: 11,
@@ -286,9 +295,15 @@ export function Sidebar() {
 
   return (
     <>
-      <div style={{ width: s.leftWidth, flex: "0 0 auto", background: "var(--panel)", display: "flex", flexDirection: "column" }}>
+      <div style={{ width: isMobile ? "100%" : s.leftWidth, height: isMobile ? "100%" : undefined, flex: "0 0 auto", background: "var(--panel)", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 2, padding: "10px 10px 8px" }}>
-          <ToolButton title="New note" onClick={() => s.newNote()}>
+          <ToolButton
+            title="New note"
+            onClick={() => {
+              s.newNote();
+              closeIfMobile();
+            }}
+          >
             <NewNoteIcon />
           </ToolButton>
           <ToolButton title="New folder" onClick={() => s.newFolder()}>
@@ -412,14 +427,20 @@ export function Sidebar() {
                   {searchResults.map(({ note, snippet }) => (
                     <div key={note.id} style={{ marginBottom: 10 }}>
                       <div
-                        onClick={() => s.navigate(note.id)}
-                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 6px", cursor: "pointer", borderRadius: 6 }}
+                        onClick={() => {
+                          s.navigate(note.id);
+                          closeIfMobile();
+                        }}
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 6px", cursor: "pointer", borderRadius: 6, minHeight: isMobile ? 40 : undefined }}
                       >
                         <span style={{ fontSize: 9, color: "var(--faint)" }}>▾</span>
                         <span style={{ fontFamily: "var(--font-spectral)", fontSize: 14, color: "var(--ink)", flex: 1 }}>{note.title}</span>
                       </div>
                       <div
-                        onClick={() => s.navigate(note.id)}
+                        onClick={() => {
+                          s.navigate(note.id);
+                          closeIfMobile();
+                        }}
                         style={{ cursor: "pointer", margin: "4px 6px 0 18px", background: "var(--bg)", border: "1px solid var(--border-soft)", borderRadius: 8, padding: "8px 11px", fontSize: 12, color: "var(--text)", lineHeight: 1.5 }}
                       >
                         {snippet}
@@ -483,6 +504,7 @@ export function Sidebar() {
           </div>
         )}
       </div>
+      {!isMobile && (
       <div
         onMouseDown={(e) => {
           e.preventDefault();
@@ -508,6 +530,7 @@ export function Sidebar() {
           <GripIcon />
         </span>
       </div>
+      )}
     </>
   );
 }

@@ -8,6 +8,7 @@ import { GraphView } from "@/components/graph/GraphView";
 import { JournalView } from "@/components/journal/JournalView";
 import { CategoriesView } from "@/components/categories/CategoriesView";
 import { BackIcon, ForwardIcon, NewNoteIcon, GripIcon } from "@/components/icons/Icons";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
 function NavBar({ split }: { split?: boolean }) {
   const s = useVaultStore();
@@ -129,6 +130,7 @@ function showNavBarFor(kind: string) {
 
 export function MainPane() {
   const s = useVaultStore();
+  const isMobile = useIsMobile();
   const tab = s.tabs[s.active];
   const view = tab ? tab.hist[tab.hi] : null;
   const kind = view?.kind ?? "empty";
@@ -138,16 +140,26 @@ export function MainPane() {
   const splitKind = splitView?.kind ?? "empty";
 
   const isDown = s.split?.dir === "down";
+  const showSplit = !!s.split && !isMobile;
 
   return (
-    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: isDown ? "column" : "row", background: "var(--bg)" }}>
+    <div
+      style={{
+        flex: 1,
+        minWidth: 0,
+        display: "flex",
+        flexDirection: isDown ? "column" : "row",
+        background: "var(--bg)",
+        paddingBottom: isMobile ? "calc(56px + env(safe-area-inset-bottom, 0px))" : 0,
+      }}
+    >
       <div onClick={() => s.setMainPane()} style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <TabBar />
         {showNavBarFor(kind) && <NavBar />}
         <PaneContent />
       </div>
 
-      {s.split && (
+      {showSplit && (
         <>
           <div
             onMouseDown={(e) => {

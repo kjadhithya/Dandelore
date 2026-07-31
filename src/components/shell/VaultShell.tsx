@@ -13,16 +13,20 @@ import { Ribbon } from "./Ribbon";
 import { Sidebar } from "./Sidebar";
 import { MainPane } from "./MainPane";
 import { RightPanel } from "./RightPanel";
+import { BottomTabBar } from "./BottomTabBar";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { QuickSwitcher } from "@/components/palette/QuickSwitcher";
 import { CommandPalette } from "@/components/palette/CommandPalette";
 import { NoteContextMenu, BulkContextMenu, FolderContextMenu, CategoryContextMenu } from "@/components/menus/ContextMenus";
+import { NewNoteIcon } from "@/components/icons/Icons";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
 export function VaultShell() {
   const s = useVaultStore();
   const { theme, accent, accentText, accentFadedRgba, accentSelRgba } = useDerivedTheme();
   const attachInputRef = useRef<HTMLInputElement | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     let stopPersistence: (() => void) | null = null;
@@ -70,6 +74,13 @@ export function VaultShell() {
     } catch {}
   }, []);
 
+  // Sidebar and backlinks default to open on desktop; on phones they're
+  // overlays that should start closed so the note content is visible first.
+  useEffect(() => {
+    if (isMobile) useVaultStore.setState({ showRight: false, leftOpen: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (!hydrated) return null;
 
   const rgb = hexToRgb(accent);
@@ -95,11 +106,58 @@ export function VaultShell() {
       }
     >
       <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
-        <Ribbon />
-        {s.leftOpen && <Sidebar />}
+        {!isMobile && <Ribbon />}
+        {!isMobile && s.leftOpen && <Sidebar />}
         <MainPane />
         <RightPanel />
       </div>
+
+      {isMobile && s.leftOpen && (
+        <>
+          <div onClick={() => s.toggleLeft()} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.35)", zIndex: 70 }} />
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              bottom: 0,
+              left: 0,
+              zIndex: 71,
+              width: "min(86vw, 340px)",
+              display: "flex",
+              boxShadow: "0 0 40px rgba(0,0,0,.3)",
+            }}
+          >
+            <Sidebar />
+          </div>
+        </>
+      )}
+
+      {isMobile && <BottomTabBar />}
+
+      {isMobile && !s.leftOpen && (
+        <div
+          onClick={() => s.newNote()}
+          title="New note"
+          style={{
+            position: "fixed",
+            right: 16,
+            bottom: "calc(64px + env(safe-area-inset-bottom, 0px))",
+            zIndex: 64,
+            width: 52,
+            height: 52,
+            borderRadius: "50%",
+            background: accent,
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 10px 24px -6px rgba(40,30,15,.45)",
+            cursor: "pointer",
+          }}
+        >
+          <NewNoteIcon size={22} />
+        </div>
+      )}
 
       <NoteContextMenu />
       <BulkContextMenu />

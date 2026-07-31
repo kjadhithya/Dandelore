@@ -4,6 +4,7 @@ import { useVaultStore, noteTags } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
 import { LiveEditor } from "./LiveEditor";
 import { ReadingView } from "./ReadingView";
+import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import {
   EyeIcon,
   PlusIcon,
@@ -27,13 +28,19 @@ const iconBtnStyle: React.CSSProperties = {
 
 function IconBtn({ title, onClick, active, children }: { title: string; onClick: () => void; active?: boolean; children: React.ReactNode }) {
   const [hover, setHover] = useState(false);
+  const isMobile = useIsMobile();
   return (
     <div
       title={title}
       onClick={onClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      style={{ ...iconBtnStyle, background: active || hover ? "var(--active)" : "transparent", color: active || hover ? "var(--ink)" : "var(--muted)" }}
+      style={{
+        ...iconBtnStyle,
+        ...(isMobile ? { width: 40, height: 40 } : {}),
+        background: active || hover ? "var(--active)" : "transparent",
+        color: active || hover ? "var(--ink)" : "var(--muted)",
+      }}
     >
       {children}
     </div>
@@ -277,6 +284,7 @@ function Divider() {
 
 export function useMainSide(): Side {
   const s = useVaultStore();
+  const isMobile = useIsMobile();
   const cur = s.cur();
   return {
     reading: s.reading,
@@ -295,7 +303,7 @@ export function useMainSide(): Side {
     menuAttach: () => document.getElementById("attachInput")?.click(),
     showBacklinks: s.showRight && s.lastPane === "main",
     toggleBacklinks: s.toggleRightMain,
-    showSplitButtons: true,
+    showSplitButtons: !isMobile,
     splitRight: () => s.splitOpen("right"),
     splitDown: () => s.splitOpen("down"),
     onTitle: s.onTitle,
