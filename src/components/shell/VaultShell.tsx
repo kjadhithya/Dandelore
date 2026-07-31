@@ -27,10 +27,16 @@ export function VaultShell() {
   useEffect(() => {
     let stopPersistence: (() => void) | null = null;
     let stopSync: (() => void) | null = null;
+    function ensureDefaultNote() {
+      if (useVaultStore.getState().notes.length === 0) useVaultStore.getState().newNote();
+    }
     hydrateFromLocalDb().then(() => {
       setHydrated(true);
       stopPersistence = startLocalPersistence();
-      stopSync = startSyncWorker();
+      // Wait for the initial Supabase pull (if any) before deciding the
+      // vault is truly empty, so we don't spawn a spurious note alongside
+      // notes that are about to arrive from the cloud.
+      stopSync = startSyncWorker(ensureDefaultNote);
     });
     return () => {
       stopPersistence?.();

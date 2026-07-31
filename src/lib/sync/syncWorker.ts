@@ -127,31 +127,17 @@ async function pullAndMerge(vaultId: string) {
     await backfillAttachments(vaultId, note);
   }
 
-  if (remoteFolders?.length) {
-    const localFolders = useVaultStore.getState().folderList;
-    const folderSet = new Set(localFolders);
-    const folderParents = { ...useVaultStore.getState().folderParents };
-    let foldersChanged = false;
+  if (remoteFolders) {
+    const folderList = remoteFolders.map((f) => f.name);
+    const folderParents: Record<string, string | null> = {};
     remoteFolders.forEach((f) => {
-      if (!folderSet.has(f.name)) {
-        folderSet.add(f.name);
-        foldersChanged = true;
-      }
       folderParents[f.name] = f.parent;
     });
-    if (foldersChanged) useVaultStore.setState({ folderList: [...folderSet], folderParents });
+    useVaultStore.setState({ folderList, folderParents });
   }
 
-  if (remoteCategories?.length) {
-    const localCategories = new Set(useVaultStore.getState().categories);
-    let categoriesChanged = false;
-    remoteCategories.forEach((c) => {
-      if (!localCategories.has(c.name)) {
-        localCategories.add(c.name);
-        categoriesChanged = true;
-      }
-    });
-    if (categoriesChanged) useVaultStore.setState({ categories: [...localCategories] });
+  if (remoteCategories) {
+    useVaultStore.setState({ categories: remoteCategories.map((c) => c.name) });
   }
 }
 
@@ -170,22 +156,51 @@ async function pushNote(vaultId: string, note: Note) {
   }
 }
 
+async function pushNoteDelete(vaultId: string, noteId: string) {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  const { error } = await supabase.from("notes").delete().eq("vault_id", vaultId).eq("id", noteId);
+  if (error) {
+    await localDb.mutationQueue.add({
+      table: "notes",
+      op: "delete",
+      rowId: noteId,
+      payload: null,
+      createdAt: Date.now(),
+    });
+  }
+}
+
+/** Makes the remote `folders` table exactly match `folderList` — deletes rows
+ * for folders no longer present locally, then upserts the rest. Folders have
+ * no per-row modified timestamp, so unlike notes this sync is "local always
+ * wins" rather than last-write-wins. */
 async function pushFolders(vaultId: string, folderList: string[], folderParents: Record<string, string | null>) {
   const supabase = getSupabase();
-  if (!supabase || !folderList.length) return;
-  await supabase.from("folders").upsert(
-    folderList.map((name) => ({ vault_id: vaultId, name, parent: folderParents[name] ?? null })),
-    { onConflict: "vault_id,name" },
-  );
+  if (!supabase) return;
+  if (folderList.length) {
+    await supabase.from("folders").delete().eq("vault_id", vaultId).not("name", "in", `(${folderList.map((n) => `"${n}"`).join(",")})`);
+    await supabase.from("folders").upsert(
+      folderList.map((name) => ({ vault_id: vaultId, name, parent: folderParents[name] ?? null })),
+      { onConflict: "vault_id,name" },
+    );
+  } else {
+    await supabase.from("folders").delete().eq("vault_id", vaultId);
+  }
 }
 
 async function pushCategories(vaultId: string, categories: string[]) {
   const supabase = getSupabase();
-  if (!supabase || !categories.length) return;
-  await supabase.from("categories").upsert(
-    categories.map((name) => ({ vault_id: vaultId, name })),
-    { onConflict: "vault_id,name" },
-  );
+  if (!supabase) return;
+  if (categories.length) {
+    await supabase.from("categories").delete().eq("vault_id", vaultId).not("name", "in", `(${categories.map((n) => `"${n}"`).join(",")})`);
+    await supabase.from("categories").upsert(
+      categories.map((name) => ({ vault_id: vaultId, name })),
+      { onConflict: "vault_id,name" },
+    );
+  } else {
+    await supabase.from("categories").delete().eq("vault_id", vaultId);
+  }
 }
 
 async function replayQueue(vaultId: string) {
@@ -196,6 +211,10 @@ async function replayQueue(vaultId: string) {
     if (m.table === "notes" && m.op === "upsert") {
       const { error } = await supabase.from("notes").upsert(m.payload as never);
       if (error) continue; // still offline / still failing — leave queued, try again next time
+    }
+    if (m.table === "notes" && m.op === "delete") {
+      const { error } = await supabase.from("notes").delete().eq("vault_id", vaultId).eq("id", m.rowId);
+      if (error) continue;
     }
     if (m.id != null) await localDb.mutationQueue.delete(m.id);
   }
@@ -210,11 +229,19 @@ function debounce<T extends (...args: never[]) => void>(fn: T, ms: number): T {
 }
 
 /** No-ops entirely when Supabase isn't configured or no vault has been
- * resolved yet — the app must keep working purely local-first in that case. */
-export function startSyncWorker(): () => void {
-  if (!isSupabaseConfigured()) return () => {};
+ * resolved yet — the app must keep working purely local-first in that case.
+ * `onReady` fires once the initial pull-and-merge from Supabase completes,
+ * so callers can tell "no notes locally" apart from "haven't checked yet". */
+export function startSyncWorker(onReady?: () => void): () => void {
+  if (!isSupabaseConfigured()) {
+    onReady?.();
+    return () => {};
+  }
   const vaultId = getCurrentVaultId();
-  if (!vaultId) return () => {};
+  if (!vaultId) {
+    onReady?.();
+    return () => {};
+  }
 
   let cancelled = false;
   let channel: RealtimeChannel | null = null;
@@ -236,8 +263,12 @@ export function startSyncWorker(): () => void {
   const unsubscribeStore = useVaultStore.subscribe((state) => {
     if (state.notes !== prevNotes) {
       const prevById = new Map(prevNotes.map((n) => [n.id, n]));
+      const currentIds = new Set(state.notes.map((n) => n.id));
       state.notes.forEach((n) => {
         if (prevById.get(n.id) !== n) debouncedPushNote(n);
+      });
+      prevById.forEach((_n, id) => {
+        if (!currentIds.has(id)) pushNoteDelete(vaultId, id);
       });
       prevNotes = state.notes;
     }
@@ -253,6 +284,7 @@ export function startSyncWorker(): () => void {
 
   async function init() {
     await pullAndMerge(vaultId!);
+    onReady?.();
     await replayQueue(vaultId!);
     if (cancelled) return;
 
