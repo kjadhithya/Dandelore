@@ -8,7 +8,6 @@ import { CheatsheetModal } from "./CheatsheetModal";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { signOutSupabase } from "@/lib/supabase/vaultAuth";
 import { clearLocalDb } from "@/lib/db/localDb";
-import { clearVault } from "@/lib/vault/clearVault";
 import type { ThemeName } from "@/types/vault";
 
 export function SettingsModal() {
@@ -16,8 +15,6 @@ export function SettingsModal() {
   const { accent, theme } = useDerivedTheme();
   const [email, setEmail] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
-  const [confirmClear, setConfirmClear] = useState(false);
-  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     if (!s.settingsOpen || !isSupabaseConfigured()) return;
@@ -31,13 +28,6 @@ export function SettingsModal() {
     await signOutSupabase();
     await clearLocalDb();
     window.location.reload();
-  }
-
-  async function handleClearVault() {
-    setClearing(true);
-    await clearVault();
-    setClearing(false);
-    setConfirmClear(false);
   }
 
   if (!s.settingsOpen) return null;
@@ -164,34 +154,6 @@ export function SettingsModal() {
                 Export vault (JSON)
               </div>
             </div>
-            {!confirmClear ? (
-              <div
-                onClick={() => setConfirmClear(true)}
-                style={{ cursor: "pointer", textAlign: "center", fontSize: 13, color: "#c15a3d", border: "1px solid var(--border)", borderRadius: 9, padding: 10 }}
-              >
-                Clear vault…
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 9, border: "1px solid #c15a3d55", background: "#c15a3d11", borderRadius: 9, padding: 10 }}>
-                <span style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.4 }}>
-                  This permanently deletes all notes, folders, and categories in this vault. This can&apos;t be undone.
-                </span>
-                <div style={{ display: "flex", gap: 9 }}>
-                  <div
-                    onClick={clearing ? undefined : () => setConfirmClear(false)}
-                    style={{ cursor: clearing ? "default" : "pointer", opacity: clearing ? 0.6 : 1, flex: 1, textAlign: "center", fontSize: 13, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 8, padding: 9 }}
-                  >
-                    Cancel
-                  </div>
-                  <div
-                    onClick={clearing ? undefined : handleClearVault}
-                    style={{ cursor: clearing ? "default" : "pointer", opacity: clearing ? 0.6 : 1, flex: 1, textAlign: "center", fontSize: 13, color: "#fff", background: "#c15a3d", borderRadius: 8, padding: 9 }}
-                  >
-                    {clearing ? "Clearing…" : "Yes, clear everything"}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
           <div style={{ height: 1, background: "var(--border-soft)" }} />
           <div
