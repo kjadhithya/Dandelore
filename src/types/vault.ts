@@ -63,6 +63,14 @@ export interface CatCtx {
   y: number;
 }
 
+export interface ConfirmDialogState {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onCancel?: () => void;
+}
+
 export interface VaultState {
   notes: Note[];
   // Set to a fresh object (never mutated) whenever deleteNote/bulkDelete
@@ -109,6 +117,7 @@ export interface VaultState {
   themeOverride: ThemeName | null;
   accentOverride: string | null;
   settingsOpen: boolean;
+  confirmDialog: ConfirmDialogState | null;
   selectedIds: string[];
   selectAnchor: string | null;
   bulkCtx: BulkCtx | null;

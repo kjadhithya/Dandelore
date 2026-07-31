@@ -133,6 +133,7 @@ function TitleField({ value, onChange }: { value: string; onChange: (v: string) 
 export function EditorPane({ note, side }: { note: Note; side: Side }) {
   const { accentText, accent } = useDerivedTheme();
   const categories = useVaultStore((s) => s.categories);
+  const openConfirm = useVaultStore((s) => s.openConfirm);
 
   const hasCat = !!note.category;
   const tags = side.tagChips;
@@ -204,7 +205,18 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
                   {side.menuAttach && <MenuItem onClick={side.menuAttach}>Attach file…</MenuItem>}
                   <MenuItem onClick={side.menuExportNote}>Export note (.md)</MenuItem>
                   <Divider />
-                  <div onClick={side.menuDelete} style={{ padding: "8px 13px", fontSize: 13, color: "#c15a3d", cursor: "pointer", borderRadius: 6 }}>
+                  <div
+                    onClick={() => {
+                      side.toggleNoteMenu();
+                      openConfirm({
+                        title: "Delete note?",
+                        message: `"${note.title || "Untitled"}" will be permanently deleted. This can't be undone.`,
+                        confirmLabel: "Delete",
+                        onConfirm: side.menuDelete,
+                      });
+                    }}
+                    style={{ padding: "8px 13px", fontSize: 13, color: "#c15a3d", cursor: "pointer", borderRadius: 6 }}
+                  >
                     Delete note
                   </div>
                 </div>

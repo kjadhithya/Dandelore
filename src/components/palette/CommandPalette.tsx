@@ -32,7 +32,20 @@ export function CommandPalette() {
     { glyph: "⇈", label: "Export vault (JSON)", run: () => s.exportJson() },
     { glyph: "⎘", label: "Attach file", run: () => document.getElementById("attachInput")?.click() },
     { glyph: "👁", label: "Toggle reading view", run: () => s.toggleReading() },
-    { glyph: "🗑", label: "Delete note", run: () => s.deleteCurrent() },
+    {
+      glyph: "🗑",
+      label: "Delete note",
+      run: () => {
+        const note = s.cur();
+        if (!note) return;
+        s.openConfirm({
+          title: "Delete note?",
+          message: `"${note.title || "Untitled"}" will be permanently deleted. This can't be undone.`,
+          confirmLabel: "Delete",
+          onConfirm: () => s.deleteCurrent(),
+        });
+      },
+    },
     {
       glyph: "▤",
       label: "New folder",

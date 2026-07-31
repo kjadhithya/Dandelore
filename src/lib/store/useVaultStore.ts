@@ -196,6 +196,8 @@ export interface VaultStore extends VaultState {
   setAccent: (hex: string) => void;
   openSettings: () => void;
   closeSettings: () => void;
+  openConfirm: (cfg: { title: string; message: string; confirmLabel?: string; onConfirm: () => void; onCancel?: () => void }) => void;
+  closeConfirm: () => void;
   setTheme: (t: ThemeName) => void;
 
   // undo/redo
@@ -304,6 +306,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   themeOverride: null,
   accentOverride: null,
   settingsOpen: false,
+  confirmDialog: null,
   selectedIds: [],
   selectAnchor: null,
   bulkCtx: null,
@@ -942,6 +945,11 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   },
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),
+  openConfirm: (cfg) =>
+    set({
+      confirmDialog: { title: cfg.title, message: cfg.message, confirmLabel: cfg.confirmLabel || "Delete", onConfirm: cfg.onConfirm, onCancel: cfg.onCancel },
+    }),
+  closeConfirm: () => set({ confirmDialog: null }),
   setTheme: (t) => {
     set({ themeOverride: t });
     try {

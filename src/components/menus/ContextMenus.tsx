@@ -46,7 +46,19 @@ export function NoteContextMenu() {
             <Item onClick={() => s.ctxMoveStart()}>Move file to…</Item>
             <Item onClick={() => s.ctxRename()}>Rename…</Item>
             <Divider />
-            <Item danger onClick={() => s.ctxDelete()}>
+            <Item
+              danger
+              onClick={() => {
+                const note = s.notes.find((n) => n.id === s.ctxMenu!.id);
+                s.openConfirm({
+                  title: "Delete note?",
+                  message: `"${note?.title || "Untitled"}" will be permanently deleted. This can't be undone.`,
+                  confirmLabel: "Delete",
+                  onConfirm: () => s.ctxDelete(),
+                  onCancel: () => s.closeCtx(),
+                });
+              }}
+            >
               Delete
             </Item>
           </>
@@ -76,7 +88,19 @@ export function BulkContextMenu() {
             <Item onClick={() => s.bulkNewFolder()}>New folder with selection ({s.selectedIds.length} items)</Item>
             <Item onClick={() => s.bulkCtxMoveStart()}>Move {s.selectedIds.length} items to…</Item>
             <Divider />
-            <Item danger onClick={() => s.bulkDelete()}>
+            <Item
+              danger
+              onClick={() => {
+                const count = s.selectedIds.length;
+                s.closeBulkCtx();
+                s.openConfirm({
+                  title: `Delete ${count} note${count === 1 ? "" : "s"}?`,
+                  message: "This can't be undone.",
+                  confirmLabel: "Delete",
+                  onConfirm: () => s.bulkDelete(),
+                });
+              }}
+            >
               Delete
             </Item>
           </>
@@ -103,7 +127,19 @@ export function FolderContextMenu() {
       <div onClick={(e) => e.stopPropagation()} style={menuWrapStyle(s.folderCtx.x, s.folderCtx.y, 150)}>
         <Item onClick={() => s.startFolderRename(s.folderCtx!.name)}>Rename…</Item>
         <Item onClick={() => s.newSubfolder(s.folderCtx!.name)}>New subfolder</Item>
-        <Item danger onClick={() => s.deleteFolder(s.folderCtx!.name)}>
+        <Item
+          danger
+          onClick={() => {
+            const name = s.folderCtx!.name;
+            s.closeFolderCtx();
+            s.openConfirm({
+              title: "Delete folder?",
+              message: `"${name}" will be removed. Notes inside move up to its parent folder — they aren't deleted.`,
+              confirmLabel: "Delete folder",
+              onConfirm: () => s.deleteFolder(name),
+            });
+          }}
+        >
           Delete folder
         </Item>
       </div>
@@ -118,7 +154,19 @@ export function CategoryContextMenu() {
     <div onClick={() => s.closeCatCtx()} onContextMenu={(e) => e.preventDefault()} style={{ position: "fixed", inset: 0, zIndex: 62 }}>
       <div onClick={(e) => e.stopPropagation()} style={menuWrapStyle(s.catCtx.x, s.catCtx.y, 150)}>
         <Item onClick={() => s.catCtxRename()}>Rename…</Item>
-        <Item danger onClick={() => s.catCtxDelete()}>
+        <Item
+          danger
+          onClick={() => {
+            const name = s.catCtx!.name;
+            s.openConfirm({
+              title: "Delete category?",
+              message: `"${name}" will be removed. Notes in this category are kept, just uncategorized.`,
+              confirmLabel: "Delete category",
+              onConfirm: () => s.catCtxDelete(),
+              onCancel: () => s.closeCatCtx(),
+            });
+          }}
+        >
           Delete category
         </Item>
       </div>
