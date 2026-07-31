@@ -265,6 +265,7 @@ export interface VaultStore extends VaultState {
 
 export const useVaultStore = create<VaultStore>()((set, get) => ({
   notes: [],
+  noteDeleteEvent: null,
   folderList: [],
   folderParents: {},
   folderRenaming: null,
@@ -672,7 +673,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
           .filter((t) => t.hist.length);
         split = st.length ? { ...split, tabs: st, active: Math.min(split.active, st.length - 1) } : null;
       }
-      return { notes, tabs, split, noteMenuOpen: false, noteMenuMove: false };
+      return { notes, tabs, split, noteMenuOpen: false, noteMenuMove: false, noteDeleteEvent: { ids: [id] } };
     }),
   duplicateNote: (id) => {
     const o = get().notes.find((n) => n.id === id);
@@ -1059,7 +1060,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
           .filter((t) => t.hist.length);
         split = st.length ? { ...split, tabs: st, active: Math.min(split.active, st.length - 1) } : null;
       }
-      return { notes, tabs, split, selectedIds: [], bulkCtx: null };
+      return { notes, tabs, split, selectedIds: [], bulkCtx: null, noteDeleteEvent: { ids: [...ids] } };
     });
   },
   onAppFont: (v) => set({ appFont: v }),

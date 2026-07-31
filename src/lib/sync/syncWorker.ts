@@ -76,6 +76,24 @@ async function writeConflictRevision(vaultId: string, noteId: string, losingCont
   await supabase.from("note_revisions").insert({ note_id: noteId, vault_id: vaultId, content: losingContent, source }).select().maybeSingle();
 }
 
+const SYNCED_IDS_KEY = "syncedNoteIds";
+
+/** Note ids this device has confirmed exist remotely at least once — lets
+ * pullAndMerge tell "never synced yet, push it up" apart from "was synced,
+ * now missing remotely because another device deleted it, don't resurrect
+ * it" for local notes that have no remote counterpart. */
+async function getSyncedIds(): Promise<Set<string>> {
+  const row = await localDb.settings.get(SYNCED_IDS_KEY);
+  return new Set(Array.isArray(row?.value) ? (row!.value as string[]) : []);
+}
+
+async function addSyncedIds(ids: string[]) {
+  if (!ids.length) return;
+  const current = await getSyncedIds();
+  ids.forEach((id) => current.add(id));
+  await localDb.settings.put({ key: SYNCED_IDS_KEY, value: [...current] });
+}
+
 /** Pulls the remote vault once and merges it into local state.
  * Last-write-wins on `modified`; whichever side loses always gets archived
  * into `note_revisions` first so nothing is silently discarded. */
@@ -117,7 +135,7 @@ async function pullAndMerge(vaultId: string) {
       toBackfill.push(note);
       changed = true;
     }
-    // else: local is newer or equal — keep local, it will be pushed up.
+    // else: local is newer or equal — keep local, it will be pushed up below.
   }
 
   if (changed) {
@@ -126,6 +144,32 @@ async function pullAndMerge(vaultId: string) {
   for (const note of toBackfill) {
     await backfillAttachments(vaultId, note);
   }
+
+  // A local note missing from the remote set is either (a) never synced —
+  // e.g. created offline, or dropped by the old debounce-loses-pending-push
+  // bug — and needs pushing up now, since the normal push path only fires
+  // on an in-session content change, not on "this note has no remote
+  // counterpart"; or (b) was synced before and has since been deleted on
+  // another device, in which case pushing it back up would resurrect a
+  // deletion the user made elsewhere. getSyncedIds() tells these apart.
+  const remoteIds = new Set(((remoteNotes || []) as RemoteNoteRow[]).map((r) => r.id));
+  await addSyncedIds([...remoteIds]);
+  const syncedIds = await getSyncedIds();
+  const deletedElsewhere: string[] = [];
+  const neverSynced: Note[] = [];
+  for (const note of localNotes) {
+    if (remoteIds.has(note.id)) continue;
+    if (syncedIds.has(note.id)) deletedElsewhere.push(note.id);
+    else neverSynced.push(note);
+  }
+  if (deletedElsewhere.length) {
+    const removeSet = new Set(deletedElsewhere);
+    useVaultStore.setState((s) => ({ notes: s.notes.filter((n) => !removeSet.has(n.id)) }));
+  }
+  for (const note of neverSynced) {
+    await pushNote(vaultId, note);
+  }
+  await addSyncedIds(neverSynced.map((n) => n.id));
 
   if (remoteFolders) {
     const folderList = remoteFolders.map((f) => f.name);
@@ -283,18 +327,24 @@ export function startSyncWorker(onReady?: () => void): () => void {
   let prevNotes = useVaultStore.getState().notes;
   let prevFolderList = useVaultStore.getState().folderList;
   let prevCategories = useVaultStore.getState().categories;
+  let prevDeleteEvent = useVaultStore.getState().noteDeleteEvent;
 
   const unsubscribeStore = useVaultStore.subscribe((state) => {
     if (state.notes !== prevNotes) {
       const prevById = new Map(prevNotes.map((n) => [n.id, n]));
-      const currentIds = new Set(state.notes.map((n) => n.id));
       state.notes.forEach((n) => {
         if (prevById.get(n.id) !== n) debouncedPushNote.run(n);
       });
-      prevById.forEach((_n, id) => {
-        if (!currentIds.has(id)) pushNoteDelete(vaultId, id);
-      });
       prevNotes = state.notes;
+    }
+    // Deletion is pushed off an explicit event from deleteNote/bulkDelete,
+    // never inferred from the notes array getting shorter — pull, realtime
+    // adds, and re-hydration all replace/shrink-then-grow that array too,
+    // and diffing against it previously pushed phantom deletes to Supabase
+    // for notes that were never actually deleted by the user.
+    if (state.noteDeleteEvent !== prevDeleteEvent) {
+      prevDeleteEvent = state.noteDeleteEvent;
+      state.noteDeleteEvent?.ids.forEach((id) => pushNoteDelete(vaultId, id));
     }
     if (state.folderList !== prevFolderList) {
       debouncedPushFolders.run(state.folderList, state.folderParents);

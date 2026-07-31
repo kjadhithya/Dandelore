@@ -65,6 +65,12 @@ export interface CatCtx {
 
 export interface VaultState {
   notes: Note[];
+  // Set to a fresh object (never mutated) whenever deleteNote/bulkDelete
+  // actually remove a note — the sync worker watches this by reference to
+  // push an explicit delete, instead of inferring deletion from the notes
+  // array shrinking (which also happens harmlessly during hydrate/pull and
+  // was previously mis-firing deletes against Supabase).
+  noteDeleteEvent: { ids: string[] } | null;
   folderList: string[];
   folderParents: Record<string, string | null>;
   folderRenaming: string | null;
