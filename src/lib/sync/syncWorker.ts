@@ -314,9 +314,25 @@ export function startSyncWorker(onReady?: () => void): () => void {
   let cancelled = false;
   let channel: RealtimeChannel | null = null;
 
-  const debouncedPushNote = debounce((note: Note) => {
-    pushNote(vaultId, note);
-  }, 600);
+  // One shared debounce instance would have its single pending call
+  // overwritten every time a different note pushes in the same window —
+  // exactly what happens importing several files at once, where every new
+  // note fires a push synchronously in the same loop. Debounce per note id
+  // instead so pushing note A then note B doesn't cancel A's push.
+  const noteDebouncers = new Map<string, { run: (note: Note) => void; flush: () => void }>();
+  const debouncedPushNote = {
+    run(note: Note) {
+      let d = noteDebouncers.get(note.id);
+      if (!d) {
+        d = debounce((n: Note) => pushNote(vaultId, n), 600);
+        noteDebouncers.set(note.id, d);
+      }
+      d.run(note);
+    },
+    flush() {
+      noteDebouncers.forEach((d) => d.flush());
+    },
+  };
   const debouncedPushFolders = debounce((folderList: string[], folderParents: Record<string, string | null>) => {
     pushFolders(vaultId, folderList, folderParents);
   }, 600);
