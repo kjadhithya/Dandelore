@@ -554,11 +554,9 @@ export class EditorEngine {
     }
     const ex = t.closest && (t.closest("[data-ext]") as HTMLElement | null);
     if (ex) {
-      if (e.metaKey || e.ctrlKey) {
-        e.preventDefault();
-        const h = ex.getAttribute("href");
-        if (h) window.open(h, "_blank");
-      }
+      e.preventDefault();
+      const h = ex.getAttribute("href");
+      if (h) window.open(h, "_blank", "noopener,noreferrer");
       return;
     }
   }

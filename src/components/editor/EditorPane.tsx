@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useVaultStore, noteTags } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
 import { LiveEditor } from "./LiveEditor";
@@ -82,6 +82,52 @@ interface Side {
   onTagKey: (key: string, draft: string) => void;
   dateVal: string;
   onDate: (v: string) => void;
+}
+
+/** A plain <input> can never wrap — long titles just scroll sideways
+ * within it instead of flowing onto a second line. An auto-growing
+ * textarea reads and behaves like the same single title field but wraps
+ * like the heading it's styled as. Enter blurs rather than inserting a
+ * newline, matching how a title field is expected to behave. */
+function TitleField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          (e.target as HTMLTextAreaElement).blur();
+        }
+      }}
+      placeholder="Untitled"
+      rows={1}
+      style={{
+        border: "none",
+        background: "transparent",
+        fontFamily: "var(--font-spectral)",
+        fontWeight: 600,
+        fontSize: 31,
+        color: "var(--ink)",
+        width: "100%",
+        marginBottom: 8,
+        lineHeight: 1.15,
+        resize: "none",
+        overflow: "hidden",
+        display: "block",
+      }}
+    />
+  );
 }
 
 export function EditorPane({ note, side }: { note: Note; side: Side }) {
@@ -183,22 +229,7 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
       </div>
       <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 30px 80px" }}>
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
-          <input
-            value={note.title}
-            onChange={(e) => side.onTitle(e.target.value)}
-            placeholder="Untitled"
-            style={{
-              border: "none",
-              background: "transparent",
-              fontFamily: "var(--font-spectral)",
-              fontWeight: 600,
-              fontSize: 31,
-              color: "var(--ink)",
-              width: "100%",
-              marginBottom: 8,
-              lineHeight: 1.15,
-            }}
-          />
+          <TitleField value={note.title} onChange={side.onTitle} />
           {side.metaOpen ? (
             <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, padding: "11px 13px", display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
