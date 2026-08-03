@@ -107,6 +107,12 @@ export function LiveEditor({ note }: { note: Note }) {
         ? popup.suggestions.map((label) => ({ label }))
         : [];
 
+  const POPUP_MAX_W = 360;
+  const POPUP_MAX_H = 280;
+  const MARGIN = 8;
+  const popupLeft = popup ? Math.min(Math.max(MARGIN, popup.pos.x), Math.max(MARGIN, window.innerWidth - POPUP_MAX_W - MARGIN)) : 0;
+  const popupTop = popup ? Math.min(popup.pos.y, Math.max(MARGIN, window.innerHeight - POPUP_MAX_H - MARGIN)) : 0;
+
   return (
     <div style={{ position: "relative" }}>
       <div ref={hostRef} />
@@ -114,12 +120,13 @@ export function LiveEditor({ note }: { note: Note }) {
         <div
           style={{
             position: "fixed",
-            left: popup.pos.x,
-            top: popup.pos.y,
+            left: popupLeft,
+            top: popupTop,
             zIndex: 70,
+            width: `min(${POPUP_MAX_W}px, calc(100vw - ${MARGIN * 2}px))`,
             minWidth: 220,
-            maxWidth: 360,
-            maxHeight: 280,
+            maxWidth: `calc(100vw - ${MARGIN * 2}px)`,
+            maxHeight: POPUP_MAX_H,
             overflowY: "auto",
             background: "var(--bg)",
             border: "1px solid var(--border)",

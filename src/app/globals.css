@@ -58,6 +58,11 @@ select:focus {
 
 /* ---------- theme tokens ---------- */
 .vault {
+  /* Base text/icon color for anything that doesn't set its own — without
+   * this, currentColor (used by every icon's stroke) falls through to the
+   * browser's default black regardless of theme, e.g. a dark-mode search
+   * icon rendering black-on-black. */
+  color: var(--ink);
   --desk1: #e4dac2;
   --desk2: #d3c8ae;
   --desk3: #cabd9f;

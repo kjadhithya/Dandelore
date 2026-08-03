@@ -373,7 +373,7 @@ export function Sidebar() {
                   onChange={(e) => s.onSearchQuery(e.target.value)}
                   onKeyDown={(e) => s.onSearchKey(e.key)}
                   placeholder="Search..."
-                  style={{ border: "none", background: "transparent", fontSize: 13, color: "var(--ink)", width: "100%", fontFamily: "inherit" }}
+                  style={{ border: "none", background: "transparent", fontSize: 13, color: "var(--ink)", flex: 1, minWidth: 0, fontFamily: "inherit" }}
                 />
                 {hasSearchText && (
                   <div onClick={() => s.clearSearch()} title="Clear" style={{ flex: "0 0 auto", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", cursor: "pointer", color: "var(--faint)" }}>

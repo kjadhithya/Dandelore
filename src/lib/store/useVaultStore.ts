@@ -185,6 +185,7 @@ export interface VaultStore extends VaultState {
   closeCatCtx: () => void;
   catCtxRename: () => void;
   catCtxDelete: () => void;
+  deleteCategory: (name: string) => void;
   renameCategory: (oldN: string, newN: string) => void;
   addCategoryTop: (name: string) => void;
 
@@ -903,10 +904,13 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   },
   catCtxDelete: () => {
     const name = get().catCtx?.name;
+    if (name) get().deleteCategory(name);
+    set({ catCtx: null });
+  },
+  deleteCategory: (name) => {
     set((s) => ({
       categories: s.categories.filter((c) => c !== name),
       notes: s.notes.map((n) => (n.category === name ? { ...n, category: "" } : n)),
-      catCtx: null,
     }));
   },
   renameCategory: (oldN, newN) => {

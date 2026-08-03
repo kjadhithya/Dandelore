@@ -4,6 +4,7 @@ import { useVaultStore, noteTags } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
 import { LiveEditor } from "./LiveEditor";
 import { ReadingView } from "./ReadingView";
+import { CategoryDropdown } from "./CategoryDropdown";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import {
   EyeIcon,
@@ -132,7 +133,6 @@ function TitleField({ value, onChange }: { value: string; onChange: (v: string) 
 
 export function EditorPane({ note, side }: { note: Note; side: Side }) {
   const { accentText, accent } = useDerivedTheme();
-  const categories = useVaultStore((s) => s.categories);
   const openConfirm = useVaultStore((s) => s.openConfirm);
 
   const hasCat = !!note.category;
@@ -246,18 +246,7 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
             <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, padding: "11px 13px", display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ width: 74, color: "var(--faint)", fontSize: 12, flex: "0 0 auto" }}>Category</span>
-                <select
-                  value={side.categoryVal}
-                  onChange={(e) => side.onCategorySelect(e.target.value)}
-                  style={{ border: "1px solid var(--border)", background: "var(--input)", color: "var(--ink)", borderRadius: 7, padding: "5px 9px", fontSize: 12.5, fontFamily: "inherit", flex: 1 }}
-                >
-                  <option value="">None</option>
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                <CategoryDropdown value={side.categoryVal} onSelect={side.onCategorySelect} />
               </div>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                 <span style={{ width: 74, color: "var(--faint)", fontSize: 12, flex: "0 0 auto", paddingTop: 5 }}>Tags</span>

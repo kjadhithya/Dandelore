@@ -106,6 +106,22 @@ export function md2html(
   };
   const inl = (s: string) => inline(s, atts, hasNote, C);
 
+  // True for any line that starts a different block type (or is blank) —
+  // used to find where a run of plain paragraph lines ends, so consecutive
+  // source lines with no blank line between them join into one <p> instead
+  // of each getting their own paragraph margin. That grouping is what makes
+  // reading-mode spacing match the live editor, where a blank line is the
+  // only thing that creates a visible gap between lines.
+  const isSpecialLine = (l: string) =>
+    /^```/.test(l) ||
+    /^#{1,6}\s/.test(l) ||
+    /^\s*>/.test(l) ||
+    /^\s*[-*]\s+\[( |x|X)\]/.test(l) ||
+    /^\s*[-*]\s+/.test(l) ||
+    /^\s*\d+\.\s+/.test(l) ||
+    /^\s*(---|\*\*\*)\s*$/.test(l) ||
+    /^\s*$/.test(l);
+
   while (i < lines.length) {
     const ln = lines[i];
     if (/^```/.test(ln)) {
@@ -278,8 +294,13 @@ export function md2html(
       continue;
     }
     closeLists();
-    out += '<p style="margin:0.875em 0;line-height:1.75;color:var(--ink);">' + inl(ln) + "</p>";
+    const para: string[] = [ln];
     i++;
+    while (i < lines.length && !isSpecialLine(lines[i])) {
+      para.push(lines[i]);
+      i++;
+    }
+    out += '<p style="margin:0.6em 0;line-height:1.75;color:var(--ink);">' + para.map(inl).join("<br>") + "</p>";
   }
   closeLists();
   return out;
