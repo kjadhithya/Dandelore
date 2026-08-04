@@ -11,6 +11,8 @@ export function GraphView({ split = false }: { split?: boolean }) {
   const notes = useVaultStore((s) => s.notes);
   const navigate = useVaultStore((s) => s.navigate);
   const splitOpenNote = useVaultStore((s) => s.splitOpenNote);
+  const goCategory = useVaultStore((s) => s.goCategory);
+  const openOrCreate = useVaultStore((s) => s.openOrCreate);
 
   const themeRef = useRef(theme);
   themeRef.current = theme;
@@ -19,6 +21,7 @@ export function GraphView({ split = false }: { split?: boolean }) {
     if (!hostRef.current) return;
     const g = new ForceGraph({
       getNotes: () => useVaultStore.getState().notes,
+      getCategories: () => useVaultStore.getState().categories,
       getLinksOf: linksOf,
       getByTitle: (t) => useVaultStore.getState().byTitle(t),
       getCurId: () => (split ? useVaultStore.getState().splitCurId() : useVaultStore.getState().curId()),
@@ -31,6 +34,8 @@ export function GraphView({ split = false }: { split?: boolean }) {
           navigate(id);
         }
       },
+      onCategoryClick: (name) => goCategory(name),
+      onPhantomClick: (title) => openOrCreate(title),
     });
     graphRef.current = g;
     g.mount(hostRef.current);

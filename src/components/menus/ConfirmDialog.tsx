@@ -49,7 +49,7 @@ export function ConfirmDialog() {
 
   const card = (
     <>
-      <div style={{ fontFamily: "var(--font-spectral)", fontWeight: 600, fontSize: 17, color: "var(--ink)", marginBottom: 8 }}>{dlg.title}</div>
+      <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 17, color: "var(--ink)", marginBottom: 8 }}>{dlg.title}</div>
       <div style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5, marginBottom: 20 }}>{dlg.message}</div>
       <div style={{ display: "flex", gap: 9 }}>
         <div onClick={busy ? undefined : handleCancel} style={cancelBtn}>

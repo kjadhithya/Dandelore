@@ -103,7 +103,7 @@ export function CategoriesView() {
     <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "26px 22px" }}>
       <div style={{ maxWidth: 640, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-          <div style={{ fontFamily: "var(--font-spectral)", fontWeight: 600, fontSize: 22, color: "var(--ink)", flex: 1 }}>Categories</div>
+          <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 22, color: "var(--ink)", flex: 1 }}>Categories</div>
           <input
             value={newCat}
             onChange={(e) => setNewCat(e.target.value)}
@@ -143,7 +143,7 @@ export function CategoriesView() {
                   else if (e.key === "Escape") s.renameCategory(cat.name, cat.name);
                 }}
                 onBlur={(e) => s.renameCategory(cat.name, e.target.value)}
-                style={{ border: "1px solid var(--accent, #b0623b)", background: "var(--input)", borderRadius: 7, padding: "5px 10px", fontSize: 15, color: "var(--ink)", fontFamily: "var(--font-spectral)", fontWeight: 600, marginBottom: 6 }}
+                style={{ border: "1px solid var(--accent, #b0623b)", background: "var(--input)", borderRadius: 7, padding: "5px 10px", fontSize: 15, color: "var(--ink)", fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, marginBottom: 6 }}
               />
             ) : (
               <div
@@ -158,8 +158,13 @@ export function CategoriesView() {
                 }}
               >
                 <CategoriesIcon size={15} />
-                <span style={{ fontFamily: "var(--font-spectral)", fontWeight: 600, fontSize: 15.5, color: "var(--ink)" }}>{cat.name}</span>
-                <span style={{ fontSize: 11, color: "#fff", background: "var(--faint)", borderRadius: 20, padding: "1px 8px", flex: "0 0 auto" }}>{cat.notes.length}</span>
+                <span
+                  onClick={() => s.goCategory(cat.name)}
+                  style={{ cursor: "pointer", fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 15.5, color: "var(--ink)" }}
+                >
+                  {cat.name}
+                </span>
+                <span style={{ fontSize: 11, color: "var(--ink)", background: "var(--code)", borderRadius: 20, padding: "1px 8px", flex: "0 0 auto" }}>{cat.notes.length}</span>
                 <div style={{ flex: 1 }} />
                 <div
                   onClick={() => setMenuFor(menuFor === cat.name ? null : cat.name)}

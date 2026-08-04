@@ -1,0 +1,83 @@
+"use client";
+import React, { useState } from "react";
+import { useVaultStore, sortNotes } from "@/lib/store/useVaultStore";
+import { CategoriesIcon, SortIcon } from "@/components/icons/Icons";
+
+const SORT_DEFS: [string, string][] = [
+  ["name-az", "Name (A to Z)"],
+  ["name-za", "Name (Z to A)"],
+  ["mod-new", "Modified (new to old)"],
+  ["mod-old", "Modified (old to new)"],
+  ["created-new", "Created (new to old)"],
+  ["created-old", "Created (old to new)"],
+];
+
+export function CategoryPage({ name }: { name: string }) {
+  const s = useVaultStore();
+  const [sortOpen, setSortOpen] = useState(false);
+  const notes = sortNotes(
+    s.notes.filter((n) => n.category === name),
+    s.sort,
+  );
+  const sortLabel = SORT_DEFS.find(([k]) => k === s.sort)?.[1] || "Sort";
+
+  return (
+    <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "26px 22px" }}>
+      <div style={{ maxWidth: 680, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+          <CategoriesIcon size={17} />
+          <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 24, color: "var(--ink)", flex: 1 }}>{name}</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+          <span style={{ fontSize: 12.5, color: "var(--muted)", flex: 1 }}>
+            {notes.length} note{notes.length === 1 ? "" : "s"}
+          </span>
+          <div style={{ position: "relative" }}>
+            <div
+              onClick={() => setSortOpen((v) => !v)}
+              style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12.5, color: "var(--muted)", border: "1px solid var(--border)", background: "var(--input)", borderRadius: 8, padding: "6px 11px" }}
+            >
+              <SortIcon size={15} />
+              {sortLabel}
+            </div>
+            {sortOpen && (
+              <div
+                onMouseLeave={() => setSortOpen(false)}
+                style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 10, minWidth: 200, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(25,20,12,.5)", padding: 5 }}
+              >
+                {SORT_DEFS.map(([key, label]) => (
+                  <div
+                    key={key}
+                    onClick={() => {
+                      s.setSort(key as never);
+                      setSortOpen(false);
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 11px", fontSize: 12.5, color: "var(--ink)", cursor: "pointer", borderRadius: 6, background: s.sort === key ? "var(--active)" : "transparent" }}
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        {notes.length === 0 ? (
+          <div style={{ padding: "50px 0", textAlign: "center", color: "var(--muted)", fontSize: 13.5 }}>No notes in this category yet</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            {notes.map((n) => (
+              <div
+                key={n.id}
+                onClick={() => s.navigate(n.id)}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 10px", borderBottom: "1px solid var(--border-soft)", cursor: "pointer" }}
+              >
+                <span style={{ flex: 1, fontSize: 14, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title || "Untitled"}</span>
+                <span style={{ fontSize: 11.5, color: "var(--faint)", fontFamily: "var(--font-ibm-plex-mono)", flex: "0 0 auto" }}>{n.date || "—"}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

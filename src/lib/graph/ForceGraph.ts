@@ -5,6 +5,7 @@ interface GraphNode {
   id: string;
   title: string;
   empty: boolean;
+  kind: "note" | "category" | "phantom";
   x: number;
   y: number;
   vx: number;
@@ -14,11 +15,14 @@ interface GraphNode {
 
 export interface ForceGraphDeps {
   getNotes: () => Note[];
+  getCategories: () => string[];
   getLinksOf: (n: Note) => string[];
   getByTitle: (t: string) => Note | undefined;
   getCurId: () => string | null;
   getTheme: () => { isDark: boolean; accent: string };
   onNodeClick: (id: string) => void;
+  onCategoryClick: (name: string) => void;
+  onPhantomClick: (title: string) => void;
 }
 
 export class ForceGraph {
@@ -133,7 +137,12 @@ export class ForceGraph {
     };
     const onUp = () => {
       if (this.dragNode) {
-        if (this.moved < 4) this.deps.onNodeClick(this.dragNode.id);
+        if (this.moved < 4) {
+          const n = this.dragNode;
+          if (n.kind === "category") this.deps.onCategoryClick(n.title);
+          else if (n.kind === "phantom") this.deps.onPhantomClick(n.title);
+          else this.deps.onNodeClick(n.id);
+        }
         this.dragNode.fx = false;
         this.dragNode = null;
       }
@@ -176,34 +185,64 @@ export class ForceGraph {
 
   buildData() {
     const notes = this.deps.getNotes();
+    const categories = this.deps.getCategories();
+    const rand = () => (Math.random() - 0.5) * 260;
     const idOf: Record<string, number> = {};
-    notes.forEach((n, i) => (idOf[n.id] = i));
-    this.nodes = notes.map((n) => ({
-      id: n.id,
-      title: n.title,
-      empty: !n.content || !n.content.trim(),
-      x: (Math.random() - 0.5) * 260,
-      y: (Math.random() - 0.5) * 260,
-      vx: 0,
-      vy: 0,
-    }));
+    const nodes: GraphNode[] = [];
+    notes.forEach((n) => {
+      idOf[n.id] = nodes.length;
+      nodes.push({ id: n.id, title: n.title, empty: !n.content || !n.content.trim(), kind: "note", x: rand(), y: rand(), vx: 0, vy: 0 });
+    });
+    const catNodeId = (name: string) => "cat:" + name;
+    categories.forEach((c) => {
+      idOf[catNodeId(c)] = nodes.length;
+      nodes.push({ id: catNodeId(c), title: c, empty: false, kind: "category", x: rand(), y: rand(), vx: 0, vy: 0 });
+    });
+
     const links: [number, number][] = [];
     const nb: Record<string, Set<string>> = {};
-    notes.forEach((n) => (nb[n.id] = new Set()));
+    nodes.forEach((n) => (nb[n.id] = new Set()));
+    // Wikilinks to titles with no matching note still show up here, faded,
+    // so the graph reflects pages you've referenced but haven't created yet.
+    const phantomIdOf: Record<string, string> = {};
     notes.forEach((n) => {
       this.deps.getLinksOf(n).forEach((t) => {
         const tg = this.deps.getByTitle(t);
-        if (tg && tg.id !== n.id) {
+        if (tg) {
+          if (tg.id === n.id) return;
           links.push([idOf[n.id], idOf[tg.id]]);
           nb[n.id].add(tg.id);
           nb[tg.id].add(n.id);
+          return;
         }
+        const key = t.trim().toLowerCase();
+        if (!key) return;
+        let pid = phantomIdOf[key];
+        if (!pid) {
+          pid = "phantom:" + key;
+          phantomIdOf[key] = pid;
+          idOf[pid] = nodes.length;
+          nodes.push({ id: pid, title: t.trim(), empty: false, kind: "phantom", x: rand(), y: rand(), vx: 0, vy: 0 });
+          nb[pid] = new Set();
+        }
+        links.push([idOf[n.id], idOf[pid]]);
+        nb[n.id].add(pid);
+        nb[pid].add(n.id);
       });
+      if (n.category) {
+        const cid = catNodeId(n.category);
+        if (idOf[cid] !== undefined) {
+          links.push([idOf[n.id], idOf[cid]]);
+          nb[n.id].add(cid);
+          nb[cid].add(n.id);
+        }
+      }
     });
+    this.nodes = nodes;
     this.links = links;
     this.nb = nb;
     const deg: Record<string, number> = {};
-    this.nodes.forEach((n) => (deg[n.id] = nb[n.id].size));
+    nodes.forEach((n) => (deg[n.id] = nb[n.id].size));
     this.deg = deg;
   }
 
@@ -270,10 +309,23 @@ export class ForceGraph {
     const cur = this.deps.getCurId();
     const hov = this.hover;
     const hset = hov ? new Set([hov, ...this.nb[hov]]) : null;
-    const edgeCol = isDark ? "#47423a" : "#c3b79a";
-    const nodeCol = mixHex(accent, isDark ? "#4a4a4a" : "#bdbdbd", 0.5);
-    const ring = isDark ? "#1d1b17" : "#faf5ea";
-    const txtCol = isDark ? "#b8ad98" : "#6f6552";
+    // Reading the vault's actual current CSS variables (rather than a
+    // hardcoded isDark ? warm-dark : warm-light pair) means the graph
+    // follows whichever theme is really active — the old hardcoded pair
+    // was always the *warm* theme's colors, so plain Dark/Light rendered
+    // with a warm ring/text tint that didn't match either theme.
+    const cs = this.host ? getComputedStyle(this.host) : null;
+    const cssVar = (name: string, fallback: string) => {
+      const v = cs?.getPropertyValue(name).trim();
+      return v || fallback;
+    };
+    const bg = cssVar("--bg", isDark ? "#141414" : "#faf7f2");
+    const baseGray = cssVar("--faint", isDark ? "#736b5a" : "#a2977f");
+    const edgeCol = cssVar("--border", isDark ? "#363636" : "#e2dcc9");
+    const nodeCol = mixHex(accent, baseGray, 0.5);
+    const ring = bg;
+    const txtCol = cssVar("--muted", isDark ? "#8a8a8a" : "#8a7f6a");
+    const fontStack = cs?.fontFamily || "'IBM Plex Sans',sans-serif";
 
     this.links.forEach(([a, b]) => {
       const A = this.nodes[a],
@@ -288,23 +340,45 @@ export class ForceGraph {
       ctx.stroke();
     });
     ctx.globalAlpha = 1;
-    const emptyNodeCol = mixHex(nodeCol, isDark ? "#141414" : "#faf5ea", 0.4);
+    const emptyNodeCol = mixHex(nodeCol, bg, 0.4);
+    const categoryCol = mixHex(accent, bg, 0.35);
+    const phantomCol = mixHex(nodeCol, bg, 0.55);
     this.nodes.forEach((n) => {
-      const r = 6 + Math.min(this.deg[n.id] || 0, 5) * 1.7;
+      const r = n.kind === "category" ? 8 : 6 + Math.min(this.deg[n.id] || 0, 5) * 1.7;
       const active = n.id === cur;
       const dim = !!(hset && !hset.has(n.id));
-      ctx.globalAlpha = dim ? 0.22 : 1;
+      // Phantom (not-yet-created) nodes stay visually faded regardless of
+      // hover/selection state — they represent something that doesn't
+      // exist yet, so they should never read as prominently as a real note.
+      const phantomAlpha = n.kind === "phantom" ? 0.5 : 1;
+      ctx.globalAlpha = (dim ? 0.22 : 1) * phantomAlpha;
       ctx.beginPath();
-      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = n.empty && !active && hov !== n.id ? emptyNodeCol : active ? accent : hov === n.id ? accent : nodeCol;
+      if (n.kind === "category") {
+        const s = r * 1.7;
+        ctx.rect(n.x - s / 2, n.y - s / 2, s, s);
+      } else {
+        ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+      }
+      const on = active || hov === n.id;
+      ctx.fillStyle =
+        n.kind === "category"
+          ? on
+            ? accent
+            : categoryCol
+          : n.kind === "phantom"
+            ? phantomCol
+            : n.empty && !on
+              ? emptyNodeCol
+              : on
+                ? accent
+                : nodeCol;
       ctx.fill();
       ctx.lineWidth = 2;
       ctx.strokeStyle = ring;
       ctx.stroke();
-      ctx.globalAlpha = dim ? 0.22 : 1;
       if (this.scale > 0.55 || n.id === hov || active) {
-        ctx.fillStyle = active || n.id === hov ? accent : txtCol;
-        ctx.font = (active || n.id === hov ? "600 " : "500 ") + "11px 'IBM Plex Sans',sans-serif";
+        ctx.fillStyle = on ? accent : txtCol;
+        ctx.font = (on ? "600 " : n.kind === "category" ? "600 " : "500 ") + "11px " + fontStack;
         ctx.textAlign = "center";
         const label = n.title.length > 20 ? n.title.slice(0, 19) + "…" : n.title;
         ctx.fillText(label || "Untitled", n.x, n.y - r - 6);

@@ -46,7 +46,7 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
         }}
       >
         <div style={{ display: "flex", alignItems: "center", padding: "6px 6px 10px" }}>
-          <span style={{ flex: 1, fontFamily: "var(--font-spectral)", fontWeight: 600, fontSize: 16, color: "var(--ink)" }}>More</span>
+          <span style={{ flex: 1, fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 16, color: "var(--ink)" }}>More</span>
           <div onClick={onClose} style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--muted)" }}>
             <CloseIcon />
           </div>

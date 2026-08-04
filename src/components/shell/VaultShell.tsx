@@ -70,8 +70,19 @@ export function VaultShell() {
       if (t) useVaultStore.setState({ themeOverride: t as never });
       const a = localStorage.getItem("kv-accent");
       if (a) useVaultStore.setState({ accentOverride: a });
+      const r = localStorage.getItem("kv-showRight");
+      if (r !== null) useVaultStore.setState({ showRight: r === "1" });
     } catch {}
   }, []);
+
+  // Backlinks visibility is a layout preference, not vault data — persist it
+  // like theme/accent so closing it sticks across reloads instead of always
+  // reopening from the store's static initial state.
+  useEffect(() => {
+    try {
+      localStorage.setItem("kv-showRight", s.showRight ? "1" : "0");
+    } catch {}
+  }, [s.showRight]);
 
   // document.body sits outside .vault, so it can't see --bg via CSS
   // variables — without this it stays whatever static color globals.css

@@ -40,7 +40,7 @@ export function RightPanel() {
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 9 }}>
         <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--faint)" }}>Backlinks</span>
-        <span style={{ fontSize: 10, color: "#fff", background: "var(--faint)", borderRadius: 20, padding: "0 6px", lineHeight: "15px" }}>{backlinks.length}</span>
+        <span style={{ fontSize: 10, color: "var(--ink)", background: "var(--code)", borderRadius: 20, padding: "0 6px", lineHeight: "15px" }}>{backlinks.length}</span>
       </div>
       {backlinks.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

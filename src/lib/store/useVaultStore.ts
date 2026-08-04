@@ -85,6 +85,7 @@ export interface VaultStore extends VaultState {
   goGraph: () => void;
   goJournal: () => void;
   goCategories: () => void;
+  goCategory: (name: string) => void;
   goBookmarks: () => void;
   goHome: () => void;
   showFiles: () => void;
@@ -470,6 +471,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   goGraph: () => get().navView({ kind: "graph" }),
   goJournal: () => get().navView({ kind: "journal" }),
   goCategories: () => get().navView({ kind: "categories" }),
+  goCategory: (name) => get().navView({ kind: "category", id: name }),
   goBookmarks: () => get().navView({ kind: "bookmarks" }),
   goHome: () => get().navView({ kind: "home" }),
   showFiles: () => set({ sideMode: "files", leftOpen: true }),

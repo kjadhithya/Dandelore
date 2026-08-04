@@ -46,7 +46,7 @@ export function JournalView() {
       <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "26px 22px" }}>
         <div style={{ maxWidth: 560, margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-            <div style={{ fontFamily: "var(--font-spectral)", fontWeight: 600, fontSize: 20, color: "var(--ink)", flex: 1 }}>
+            <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 20, color: "var(--ink)", flex: 1 }}>
               {MONTHS[mo]} {y}
             </div>
             <div onClick={() => s.prevMonth()} title="Previous month" style={{ cursor: "pointer", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, color: "var(--muted)" }}>
@@ -95,7 +95,7 @@ export function JournalView() {
             })}
           </div>
           <div style={{ marginTop: 22, display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontFamily: "var(--font-spectral)", fontWeight: 600, fontSize: 15, color: "var(--ink)", flex: 1 }}>{s.calSelected}</div>
+            <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 15, color: "var(--ink)", flex: 1 }}>{s.calSelected}</div>
             <span onClick={() => s.newDaily()} style={{ cursor: "pointer", fontSize: 12, color: "#fff", background: accent, padding: "6px 12px", borderRadius: 7 }}>
               + Daily note
             </span>

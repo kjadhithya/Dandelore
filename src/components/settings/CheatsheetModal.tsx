@@ -17,7 +17,7 @@ export function CheatsheetModal() {
         style={{ width: 520, maxWidth: "92vw", maxHeight: "78vh", display: "flex", flexDirection: "column", background: "var(--bg)", borderRadius: 14, boxShadow: "0 30px 70px -18px rgba(50,40,25,.6)", overflow: "hidden" }}
       >
         <div style={{ flex: "0 0 auto", padding: "16px 20px", borderBottom: "1px solid var(--border-soft)", display: "flex", alignItems: "center" }}>
-          <span style={{ flex: 1, fontFamily: "var(--font-spectral)", fontWeight: 600, fontSize: 17, color: "var(--ink)" }}>Markdown cheatsheet</span>
+          <span style={{ flex: 1, fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 17, color: "var(--ink)" }}>Markdown cheatsheet</span>
           <div onClick={() => s.closeCheat()} title="Close" style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 7, cursor: "pointer", color: "var(--muted)" }}>
             <CloseIcon />
           </div>

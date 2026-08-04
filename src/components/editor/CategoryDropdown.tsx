@@ -34,27 +34,38 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
   const rowIconBtn = rowIconBtnStyle(isMobile);
 
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
-  const [newDraft, setNewDraft] = useState("");
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
     function onDocPointerDown(e: PointerEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
     }
     document.addEventListener("pointerdown", onDocPointerDown);
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, [open]);
 
-  function commitNew() {
-    const name = newDraft.trim();
-    if (!name) return;
-    addCategoryGlobal(name);
+  const q = query.trim();
+  const filtered = q ? categories.filter((c) => c.toLowerCase().includes(q.toLowerCase())) : categories;
+  const exactMatch = q ? categories.some((c) => c.toLowerCase() === q.toLowerCase()) : true;
+
+  function select(name: string) {
     onSelect(name);
-    setNewDraft("");
     setOpen(false);
+    setQuery("");
+  }
+
+  function commitNew(name: string) {
+    const v = name.trim();
+    if (!v) return;
+    addCategoryGlobal(v);
+    select(v);
   }
 
   function commitRename(oldName: string) {
@@ -75,7 +86,7 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
   return (
     <div ref={rootRef} style={{ position: "relative", flex: 1 }}>
       <div
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(true)}
         style={{
           display: "flex",
           alignItems: "center",
@@ -87,10 +98,27 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
           borderRadius: 7,
           padding: "5px 8px 5px 10px",
           fontSize: 12.5,
-          cursor: "pointer",
         }}
       >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{value || "None"}</span>
+        <input
+          value={open ? query : value}
+          onFocus={(e) => {
+            setOpen(true);
+            e.target.select();
+          }}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              if (!exactMatch && q) commitNew(q);
+              else if (filtered.length === 1) select(filtered[0]);
+            } else if (e.key === "Escape") {
+              setOpen(false);
+              setQuery("");
+            }
+          }}
+          placeholder="None"
+          style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", color: "var(--ink)", fontSize: 12.5, fontFamily: "inherit", cursor: "text" }}
+        />
         <ChevronDownSmall size={13} />
       </div>
       {open && (
@@ -110,26 +138,26 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
             overflowY: "auto",
           }}
         >
-          <div
-            onClick={() => {
-              onSelect("");
-              setOpen(false);
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              minHeight: isMobile ? 40 : undefined,
-              padding: "8px 10px",
-              fontSize: 12.5,
-              borderRadius: 6,
-              cursor: "pointer",
-              color: !value ? accentText : "var(--ink)",
-              fontWeight: !value ? 600 : 400,
-            }}
-          >
-            None
-          </div>
-          {categories.map((c) =>
+          {!q && (
+            <div
+              onClick={() => select("")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                minHeight: isMobile ? 40 : undefined,
+                padding: "8px 10px",
+                fontSize: 12.5,
+                borderRadius: 6,
+                cursor: "pointer",
+                color: !value ? accentText : "var(--ink)",
+                fontWeight: !value ? 600 : 400,
+              }}
+            >
+              None
+            </div>
+          )}
+          {filtered.length === 0 && q && <div style={{ padding: "8px 10px", fontSize: 12, color: "var(--faint)" }}>No matching categories</div>}
+          {filtered.map((c) =>
             renaming === c ? (
               <div key={c} style={{ padding: "4px 4px" }}>
                 <input
@@ -147,10 +175,7 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
             ) : (
               <div key={c} style={{ display: "flex", alignItems: "center", gap: 4, borderRadius: 6 }}>
                 <span
-                  onClick={() => {
-                    onSelect(c);
-                    setOpen(false);
-                  }}
+                  onClick={() => select(c)}
                   style={{
                     flex: 1,
                     display: "flex",
@@ -184,17 +209,27 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
               </div>
             ),
           )}
-          <div style={{ borderTop: "1px solid var(--border-soft)", marginTop: 4, paddingTop: 6 }}>
-            <input
-              value={newDraft}
-              onChange={(e) => setNewDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commitNew();
+          {q && !exactMatch && (
+            <div
+              onClick={() => commitNew(q)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                minHeight: isMobile ? 40 : undefined,
+                marginTop: filtered.length ? 4 : 0,
+                borderTop: filtered.length ? "1px solid var(--border-soft)" : "none",
+                padding: "8px 10px",
+                fontSize: 12.5,
+                color: "var(--accent-text, var(--accent))",
+                fontWeight: 600,
+                borderRadius: 6,
+                cursor: "pointer",
               }}
-              placeholder="+ New category"
-              style={{ width: "100%", border: "1px solid var(--border)", background: "var(--input)", borderRadius: 6, padding: "7px 9px", fontSize: 12.5, color: "var(--ink)", fontFamily: "inherit" }}
-            />
-          </div>
+            >
+              + Create “{q}”
+            </div>
+          )}
         </div>
       )}
     </div>

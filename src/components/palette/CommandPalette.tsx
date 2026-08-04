@@ -72,7 +72,7 @@ export function CommandPalette() {
             value={s.cmdQuery}
             onChange={(e) => s.onCmd(e.target.value)}
             placeholder="Type a command…"
-            style={{ border: "none", background: "transparent", fontSize: 16, color: "var(--ink)", width: "100%", fontFamily: "var(--font-spectral)" }}
+            style={{ border: "none", background: "transparent", fontSize: 16, color: "var(--ink)", width: "100%", fontFamily: "var(--font-title, var(--font-spectral))" }}
           />
         </div>
         <div className="vscroll" style={{ maxHeight: 360, overflowY: "auto", padding: 7 }}>

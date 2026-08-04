@@ -69,7 +69,7 @@ function ToolButton({
       onClick={onClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      style={toolBtnStyle(!!active, hover, isMobile ? 40 : 28)}
+      style={toolBtnStyle(!!active, hover, isMobile ? 42 : 33)}
     >
       {children}
     </div>
@@ -304,24 +304,24 @@ export function Sidebar() {
               closeIfMobile();
             }}
           >
-            <NewNoteIcon />
+            <NewNoteIcon size={20} />
           </ToolButton>
           <ToolButton title="New folder" onClick={() => s.newFolder()}>
-            <NewFolderIcon />
+            <NewFolderIcon size={20} />
           </ToolButton>
           <ToolButton title="Search" active={s.sideMode === "search"} onClick={() => s.toggleSearchMode()}>
-            <SearchIcon />
+            <SearchIcon size={19} />
           </ToolButton>
           <div style={{ flex: 1 }} />
           <div style={{ position: "relative" }}>
             <ToolButton title="Sort" onClick={() => setSortMenuOpen((v) => !v)}>
-              <SortIcon />
+              <SortIcon size={20} />
             </ToolButton>
             {sortMenuOpen && (
               <div
                 style={{
                   position: "absolute",
-                  top: 32,
+                  top: "calc(100% + 4px)",
                   right: 0,
                   zIndex: 30,
                   minWidth: 220,
@@ -354,10 +354,10 @@ export function Sidebar() {
             )}
           </div>
           <ToolButton title="Auto-reveal current file" active={s.autoReveal} onClick={() => s.toggleReveal()}>
-            <RevealIcon />
+            <RevealIcon size={20} />
           </ToolButton>
           <ToolButton title="Collapse / expand all" onClick={() => s.toggleAllFolders()}>
-            <CollapseAllIcon />
+            <CollapseAllIcon size={20} />
           </ToolButton>
         </div>
 
@@ -434,7 +434,7 @@ export function Sidebar() {
                         style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 6px", cursor: "pointer", borderRadius: 6, minHeight: isMobile ? 40 : undefined }}
                       >
                         <span style={{ fontSize: 9, color: "var(--faint)" }}>▾</span>
-                        <span style={{ fontFamily: "var(--font-spectral)", fontSize: 14, color: "var(--ink)", flex: 1 }}>{note.title}</span>
+                        <span style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontSize: 14, color: "var(--ink)", flex: 1 }}>{note.title}</span>
                       </div>
                       <div
                         onClick={() => {

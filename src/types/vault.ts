@@ -19,7 +19,7 @@ export interface Note {
   bookmarked?: boolean;
 }
 
-export type ViewKind = "note" | "graph" | "journal" | "categories" | "bookmarks" | "home";
+export type ViewKind = "note" | "graph" | "journal" | "categories" | "category" | "bookmarks" | "home";
 
 export interface View {
   kind: ViewKind;

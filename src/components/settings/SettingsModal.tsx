@@ -211,7 +211,7 @@ export function SettingsModal() {
     return (
       <div style={{ position: "fixed", inset: 0, background: "var(--bg)", zIndex: 55, display: "flex", flexDirection: "column" }}>
         <div style={{ flex: "0 0 auto", padding: "14px 16px", borderBottom: "1px solid var(--border-soft)", display: "flex", alignItems: "center" }}>
-          <span style={{ flex: 1, fontFamily: "var(--font-spectral)", fontWeight: 600, fontSize: 18, color: "var(--ink)" }}>Settings</span>
+          <span style={{ flex: 1, fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 18, color: "var(--ink)" }}>Settings</span>
           <div
             onClick={() => s.closeSettings()}
             title="Close"
@@ -251,7 +251,7 @@ export function SettingsModal() {
         style={{ width: 460, maxWidth: "92vw", background: "var(--bg)", borderRadius: 14, boxShadow: "0 30px 70px -18px rgba(50,40,25,.6)", overflow: "hidden" }}
       >
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-soft)", display: "flex", alignItems: "center" }}>
-          <span style={{ flex: 1, fontFamily: "var(--font-spectral)", fontWeight: 600, fontSize: 17, color: "var(--ink)" }}>Settings</span>
+          <span style={{ flex: 1, fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 17, color: "var(--ink)" }}>Settings</span>
           <div onClick={() => s.closeSettings()} title="Close" style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 7, cursor: "pointer", color: "var(--muted)" }}>
             <CloseIcon />
           </div>

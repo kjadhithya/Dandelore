@@ -33,7 +33,7 @@ export function QuickSwitcher() {
             value={s.quickQuery}
             onChange={(e) => s.onQuick(e.target.value)}
             placeholder="Jump to or search notes…"
-            style={{ border: "none", background: "transparent", fontSize: 16, color: "var(--ink)", width: "100%", fontFamily: "var(--font-spectral)" }}
+            style={{ border: "none", background: "transparent", fontSize: 16, color: "var(--ink)", width: "100%", fontFamily: "var(--font-title, var(--font-spectral))" }}
           />
         </div>
         <div className="vscroll" style={{ maxHeight: 340, overflowY: "auto", padding: 7 }}>

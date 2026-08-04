@@ -7,6 +7,7 @@ import { EditorPane, useMainSide, useSplitSide } from "@/components/editor/Edito
 import { GraphView } from "@/components/graph/GraphView";
 import { JournalView } from "@/components/journal/JournalView";
 import { CategoriesView } from "@/components/categories/CategoriesView";
+import { CategoryPage } from "@/components/categories/CategoryPage";
 import { BookmarksView } from "@/components/bookmarks/BookmarksView";
 import { BackIcon, ForwardIcon, NewNoteIcon, GripIcon } from "@/components/icons/Icons";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
@@ -92,7 +93,7 @@ function EmptyView() {
       <div style={{ width: 96, height: 96, borderRadius: 22, background: "var(--panel)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <span style={{ width: 34, height: 34, display: "block", background: "linear-gradient(145deg,#a7b17e,#7f8a5f)", borderRadius: "7px 16px 7px 16px", opacity: 0.5 }} />
       </div>
-      <div style={{ fontFamily: "var(--font-spectral)", fontSize: 18, color: "var(--muted)" }}>No note open</div>
+      <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontSize: 18, color: "var(--muted)" }}>No note open</div>
       <div style={{ display: "flex", gap: 8 }}>
         <div onClick={() => s.newNote()} style={{ cursor: "pointer", fontSize: 13, color: "#fff", background: accent, padding: "9px 18px", borderRadius: 8, fontWeight: 500 }}>
           New note
@@ -123,6 +124,7 @@ function PaneContent({ split }: { split?: boolean }) {
   if (kind === "graph") return (<><NavBar split={split} /><GraphView split={split} /></>);
   if (kind === "journal") return (<><NavBar split={split} /><JournalView /></>);
   if (kind === "categories") return (<><NavBar split={split} /><CategoriesView /></>);
+  if (kind === "category") return (<><NavBar split={split} /><CategoryPage name={view!.id || ""} /></>);
   if (kind === "bookmarks") return (<><NavBar split={split} /><BookmarksView /></>);
   if (kind === "home") return (<><NavBar split={split} /><HomeView split={split} /></>);
   return (<><NavBar split={split} /><EmptyView /></>);

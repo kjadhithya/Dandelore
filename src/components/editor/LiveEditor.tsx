@@ -147,7 +147,7 @@ export function LiveEditor({ note }: { note: Note }) {
                 padding: "8px 11px",
                 borderRadius: 7,
                 cursor: "pointer",
-                fontFamily: popup.type === "link" ? "var(--font-spectral)" : "var(--font-ibm-plex-mono)",
+                fontFamily: popup.type === "link" ? "var(--font-title, var(--font-spectral))" : "var(--font-ibm-plex-mono)",
                 fontSize: popup.type === "link" ? 14 : 13,
                 color:
                   popup.type === "link"

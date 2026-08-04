@@ -238,6 +238,7 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
   const openConfirm = useVaultStore((s) => s.openConfirm);
   const allTagsFn = useVaultStore((s) => s.allTags);
   const toggleBookmark = useVaultStore((s) => s.toggleBookmark);
+  const goCategory = useVaultStore((s) => s.goCategory);
 
   const hasCat = !!note.category;
   const tags = side.tagChips;
@@ -388,7 +389,10 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
           {chipsVisible && (
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 7, fontSize: 12, marginBottom: 14 }}>
               {hasCat && (
-                <span style={{ cursor: "pointer", background: "var(--code)", border: "1px solid var(--border)", borderRadius: 20, padding: "3px 11px", color: "var(--text)" }}>
+                <span
+                  onClick={() => goCategory(note.category)}
+                  style={{ cursor: "pointer", background: "var(--code)", border: "1px solid var(--border)", borderRadius: 20, padding: "3px 11px", color: "var(--text)" }}
+                >
                   {note.category}
                 </span>
               )}
