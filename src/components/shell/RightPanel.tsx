@@ -77,7 +77,6 @@ export function RightPanel() {
               }}
               style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: og.color, padding: "4px 6px", borderRadius: 6 }}
             >
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: og.color, flex: "0 0 auto" }} />
               <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{og.title}</span>
               <span style={{ fontSize: 10, color: "var(--faint)" }}>{og.tag}</span>
             </div>
@@ -91,7 +90,7 @@ export function RightPanel() {
 
   if (isMobile) {
     return (
-      <div onClick={closeMobile} style={{ position: "fixed", inset: 0, background: "rgba(58,48,32,0.34)", zIndex: 66, display: "flex", alignItems: "flex-end" }}>
+      <div onClick={closeMobile} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 66, display: "flex", alignItems: "flex-end" }}>
         <div
           className="vscroll"
           onClick={(e) => e.stopPropagation()}

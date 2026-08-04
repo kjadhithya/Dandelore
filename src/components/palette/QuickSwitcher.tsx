@@ -11,17 +11,16 @@ export function QuickSwitcher() {
 
   const qq = s.quickQuery.trim().toLowerCase();
   const qsrc = qq ? s.notes.filter((n) => n.title.toLowerCase().includes(qq) || n.content.toLowerCase().includes(qq)) : [...s.notes].reverse();
-  const curId = s.curId();
   const results = qsrc.slice(0, 8).map((n) => {
     let sub = n.content.replace(/^#\s.*$/m, "").replace(/[#*`>[\]]/g, "").replace(/\n+/g, " ").trim();
     sub = sub.slice(0, 60) || "Empty note";
-    return { note: n, sub, dot: n.id === curId ? accent : "var(--sage)" };
+    return { note: n, sub };
   });
 
   return (
     <div
       onClick={() => s.closeQuick()}
-      style={{ position: "fixed", inset: 0, background: "rgba(58,48,32,0.34)", display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "13vh", zIndex: 50 }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "13vh", zIndex: 50 }}
     >
       <div onClick={(e) => e.stopPropagation()} style={{ width: 560, maxWidth: "90vw", background: "var(--bg)", borderRadius: 13, boxShadow: "0 30px 70px -18px rgba(50,40,25,.6)", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "15px 18px", borderBottom: "1px solid var(--border-soft)" }}>
@@ -37,7 +36,7 @@ export function QuickSwitcher() {
           />
         </div>
         <div className="vscroll" style={{ maxHeight: 340, overflowY: "auto", padding: 7 }}>
-          {results.map(({ note, sub, dot }) => (
+          {results.map(({ note, sub }) => (
             <div
               key={note.id}
               onClick={() => {
@@ -46,7 +45,6 @@ export function QuickSwitcher() {
               }}
               style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 9, cursor: "pointer" }}
             >
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: dot, flex: "0 0 auto" }} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontSize: 14, color: "var(--ink)", fontWeight: 500 }}>{note.title || "Untitled"}</div>
                 <div style={{ fontSize: 11.5, color: "var(--faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub}</div>

@@ -72,6 +72,12 @@ export function VaultShell() {
       if (a) useVaultStore.setState({ accentOverride: a });
       const r = localStorage.getItem("kv-showRight");
       if (r !== null) useVaultStore.setState({ showRight: r === "1" });
+      const af = localStorage.getItem("kv-appFont");
+      if (af) useVaultStore.setState({ appFont: af as never });
+      const nf = localStorage.getItem("kv-noteFont");
+      if (nf) useVaultStore.setState({ noteFont: nf as never });
+      const tf = localStorage.getItem("kv-titleFont");
+      if (tf) useVaultStore.setState({ titleFont: tf as never });
     } catch {}
   }, []);
 
@@ -83,6 +89,16 @@ export function VaultShell() {
       localStorage.setItem("kv-showRight", s.showRight ? "1" : "0");
     } catch {}
   }, [s.showRight]);
+
+  // Font choices were never saved anywhere, so a reload silently reverted
+  // them to the hardcoded defaults regardless of what was picked in Settings.
+  useEffect(() => {
+    try {
+      localStorage.setItem("kv-appFont", s.appFont);
+      localStorage.setItem("kv-noteFont", s.noteFont);
+      localStorage.setItem("kv-titleFont", s.titleFont);
+    } catch {}
+  }, [s.appFont, s.noteFont, s.titleFont]);
 
   // document.body sits outside .vault, so it can't see --bg via CSS
   // variables — without this it stays whatever static color globals.css

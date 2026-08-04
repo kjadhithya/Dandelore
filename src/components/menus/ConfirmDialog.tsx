@@ -64,7 +64,7 @@ export function ConfirmDialog() {
 
   if (isMobile) {
     return (
-      <div onClick={() => !busy && handleCancel()} style={{ position: "fixed", inset: 0, background: "rgba(58,48,32,0.34)", zIndex: 80, display: "flex", alignItems: "flex-end" }}>
+      <div onClick={() => !busy && handleCancel()} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 80, display: "flex", alignItems: "flex-end" }}>
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
@@ -85,7 +85,7 @@ export function ConfirmDialog() {
   }
 
   return (
-    <div onClick={() => !busy && handleCancel()} style={{ position: "fixed", inset: 0, background: "rgba(58,48,32,0.34)", zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div onClick={() => !busy && handleCancel()} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div
         onClick={(e) => e.stopPropagation()}
         style={{ width: 380, maxWidth: "90vw", background: "var(--bg)", borderRadius: 14, boxShadow: "0 30px 70px -18px rgba(50,40,25,.6)", padding: 20 }}

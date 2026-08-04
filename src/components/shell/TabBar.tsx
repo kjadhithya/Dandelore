@@ -1,27 +1,25 @@
 "use client";
 import React, { useState } from "react";
 import { useVaultStore } from "@/lib/store/useVaultStore";
-import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
 import type { TabState } from "@/types/vault";
 
-function viewLabel(t: TabState, notes: ReturnType<typeof useVaultStore.getState>["notes"], accent: string, sage: string) {
+function viewLabel(t: TabState, notes: ReturnType<typeof useVaultStore.getState>["notes"]) {
   const v = t.hist[t.hi];
-  if (!v) return { label: "New tab", dot: "var(--edge)" };
+  if (!v) return "New tab";
   if (v.kind === "note") {
     const n = notes.find((x) => x.id === v.id);
-    return { label: n ? n.title || "Untitled" : "(deleted)", dot: accent };
+    return n ? n.title || "Untitled" : "(deleted)";
   }
-  if (v.kind === "graph") return { label: "Graph view", dot: "#6f92a0" };
-  if (v.kind === "journal") return { label: "Calendar", dot: accent };
-  if (v.kind === "categories") return { label: "Categories", dot: sage };
-  if (v.kind === "category") return { label: v.id || "Category", dot: sage };
-  if (v.kind === "bookmarks") return { label: "Bookmarks", dot: accent };
-  return { label: "New tab", dot: "var(--edge)" };
+  if (v.kind === "graph") return "Graph view";
+  if (v.kind === "journal") return "Calendar";
+  if (v.kind === "categories") return "Categories";
+  if (v.kind === "category") return v.id || "Category";
+  if (v.kind === "bookmarks") return "Bookmarks";
+  return "New tab";
 }
 
 export function TabBar({ split }: { split?: boolean }) {
   const s = useVaultStore();
-  const { accent } = useDerivedTheme();
   const tabs = split ? s.split?.tabs || [] : s.tabs;
   const active = split ? s.split?.active ?? 0 : s.active;
 
@@ -45,8 +43,7 @@ export function TabBar({ split }: { split?: boolean }) {
     >
       {tabs.map((t, i) => {
         const isActive = i === active;
-        const vl = viewLabel(t, s.notes, accent, "var(--sage)");
-        const dot = isActive ? vl.dot : "var(--edge)";
+        const label = viewLabel(t, s.notes);
         return (
           <div
             key={i}
@@ -70,8 +67,7 @@ export function TabBar({ split }: { split?: boolean }) {
               fontWeight: isActive ? 500 : 400,
             }}
           >
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: dot, flex: "0 0 auto" }} />
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{vl.label}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{label}</span>
             <span
               onClick={(e) => {
                 e.stopPropagation();

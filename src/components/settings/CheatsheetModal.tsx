@@ -10,7 +10,7 @@ export function CheatsheetModal() {
   return (
     <div
       onClick={() => s.closeCheat()}
-      style={{ position: "fixed", inset: 0, background: "rgba(58,48,32,0.34)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 58 }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 58 }}
     >
       <div
         onClick={(e) => e.stopPropagation()}

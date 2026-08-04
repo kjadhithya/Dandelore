@@ -34,7 +34,7 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
   }
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(58,48,32,0.34)", zIndex: 75, display: "flex", alignItems: "flex-end" }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 75, display: "flex", alignItems: "flex-end" }}>
       <div
         onClick={(e) => e.stopPropagation()}
         style={{

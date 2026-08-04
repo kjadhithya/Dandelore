@@ -245,6 +245,16 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
   const hasDate = !!note.date;
   const chipsVisible = !side.metaOpen && (hasCat || tags.length > 0 || hasDate);
 
+  const noteMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!side.noteMenuOpen) return;
+    function onDocPointerDown(e: PointerEvent) {
+      if (noteMenuRef.current && !noteMenuRef.current.contains(e.target as Node)) side.toggleNoteMenu();
+    }
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
+  }, [side.noteMenuOpen, side.toggleNoteMenu]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <div style={{ flex: "0 0 auto", padding: "7px 20px", borderBottom: "1px solid var(--border-soft)", display: "flex", alignItems: "center", gap: 2 }}>
@@ -269,7 +279,7 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
         <IconBtn title="Add property" onClick={side.openMeta}>
           <PlusIcon />
         </IconBtn>
-        <div style={{ position: "relative", flex: "0 0 auto" }}>
+        <div ref={noteMenuRef} style={{ position: "relative", flex: "0 0 auto" }}>
           <IconBtn title="More" onClick={side.toggleNoteMenu}>
             <MoreIcon />
           </IconBtn>

@@ -53,6 +53,16 @@ export class ForceGraph {
     this.deps = deps;
   }
 
+  // A note's radius grows with its connection count, but capped and on a
+  // sqrt curve so it takes far more links to visibly grow, and the ceiling
+  // itself is lower — a handful of connections shouldn't already look big.
+  radiusOf(n: GraphNode): number {
+    if (n.kind === "category") return 7;
+    if (n.kind === "phantom") return 5;
+    const d = Math.min(this.deg[n.id] || 0, 24);
+    return 5 + Math.sqrt(d) * 1.15;
+  }
+
   mount(host: HTMLDivElement) {
     if (this.host === host) return;
     host.innerHTML = "";
@@ -92,7 +102,7 @@ export class ForceGraph {
       let best: GraphNode | null = null;
       let bd = 1e9;
       this.nodes.forEach((n) => {
-        const r = 6 + Math.min(this.deg[n.id] || 0, 5) * 1.7;
+        const r = this.radiusOf(n);
         const d = Math.hypot(n.x - w.x, n.y - w.y);
         if (d < r + 5 && d < bd) {
           bd = d;
@@ -164,6 +174,90 @@ export class ForceGraph {
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     canvas.addEventListener("wheel", onWheel, { passive: false });
+
+    // Touch: one finger drags a node or pans (mirrors mouse behavior); two
+    // fingers pinch-zoom around their midpoint, anchored so the point under
+    // your fingers stays put rather than the view jumping.
+    const touchPt = (t: Touch) => {
+      const b = canvas.getBoundingClientRect();
+      return { x: t.clientX - b.left, y: t.clientY - b.top };
+    };
+    let pinch: { dist: number; scale: number; mid: { x: number; y: number }; tx: number; ty: number } | null = null;
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        pinch = null;
+        const p = touchPt(e.touches[0]);
+        const n = nodeAt(p.x, p.y);
+        this.moved = 0;
+        this.last = p;
+        if (n) {
+          this.dragNode = n;
+          n.fx = true;
+        } else {
+          this.panning = true;
+        }
+      } else if (e.touches.length === 2) {
+        this.dragNode = null;
+        this.panning = false;
+        const p1 = touchPt(e.touches[0]),
+          p2 = touchPt(e.touches[1]);
+        pinch = {
+          dist: Math.hypot(p2.x - p1.x, p2.y - p1.y) || 1,
+          scale: this.scale,
+          mid: { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 },
+          tx: this.tx,
+          ty: this.ty,
+        };
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && !pinch) {
+        const p = touchPt(e.touches[0]);
+        if (this.dragNode) {
+          const w = toWorld(p.x, p.y);
+          this.dragNode.x = w.x;
+          this.dragNode.y = w.y;
+          this.dragNode.vx = 0;
+          this.dragNode.vy = 0;
+          this.moved += Math.abs(p.x - (this.last?.x ?? p.x)) + Math.abs(p.y - (this.last?.y ?? p.y));
+          this.last = p;
+        } else if (this.panning) {
+          this.tx += p.x - this.last!.x;
+          this.ty += p.y - this.last!.y;
+          this.moved += Math.abs(p.x - this.last!.x) + Math.abs(p.y - this.last!.y);
+          this.last = p;
+        }
+      } else if (e.touches.length === 2 && pinch) {
+        const p1 = touchPt(e.touches[0]),
+          p2 = touchPt(e.touches[1]);
+        const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y) || 1;
+        const ns = Math.max(0.25, Math.min(4, pinch.scale * (dist / pinch.dist)));
+        const wx = (pinch.mid.x - pinch.tx) / pinch.scale,
+          wy = (pinch.mid.y - pinch.ty) / pinch.scale;
+        this.scale = ns;
+        this.tx = pinch.mid.x - wx * ns;
+        this.ty = pinch.mid.y - wy * ns;
+      }
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) {
+        onUp();
+        pinch = null;
+      } else if (e.touches.length === 1) {
+        // Lifting one finger out of a pinch — drop back to single-touch
+        // pan/drag cleanly instead of jumping using stale pinch state.
+        pinch = null;
+        this.dragNode = null;
+        this.panning = false;
+        this.last = touchPt(e.touches[0]);
+      }
+    };
+    canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", onTouchMove, { passive: false });
+    canvas.addEventListener("touchend", onTouchEnd);
+    canvas.addEventListener("touchcancel", onTouchEnd);
 
     const cleanupFns = () => {
       window.removeEventListener("mousemove", onMove);
@@ -342,23 +436,18 @@ export class ForceGraph {
     ctx.globalAlpha = 1;
     const emptyNodeCol = mixHex(nodeCol, bg, 0.4);
     const categoryCol = mixHex(accent, bg, 0.35);
-    const phantomCol = mixHex(nodeCol, bg, 0.55);
+    // Solid (opaque) faded color rather than an alpha-blended one — alpha
+    // let the connecting line show through the node and made the ring
+    // stroke look like a translucent halo. A flatter, bg-mixed solid color
+    // still reads as "faded" without either artifact.
+    const phantomCol = mixHex(nodeCol, bg, 0.6);
     this.nodes.forEach((n) => {
-      const r = n.kind === "category" ? 8 : 6 + Math.min(this.deg[n.id] || 0, 5) * 1.7;
+      const r = this.radiusOf(n);
       const active = n.id === cur;
       const dim = !!(hset && !hset.has(n.id));
-      // Phantom (not-yet-created) nodes stay visually faded regardless of
-      // hover/selection state — they represent something that doesn't
-      // exist yet, so they should never read as prominently as a real note.
-      const phantomAlpha = n.kind === "phantom" ? 0.5 : 1;
-      ctx.globalAlpha = (dim ? 0.22 : 1) * phantomAlpha;
+      ctx.globalAlpha = dim ? 0.22 : 1;
       ctx.beginPath();
-      if (n.kind === "category") {
-        const s = r * 1.7;
-        ctx.rect(n.x - s / 2, n.y - s / 2, s, s);
-      } else {
-        ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-      }
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
       const on = active || hov === n.id;
       ctx.fillStyle =
         n.kind === "category"
@@ -373,9 +462,11 @@ export class ForceGraph {
                 ? accent
                 : nodeCol;
       ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = ring;
-      ctx.stroke();
+      if (n.kind !== "phantom") {
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = ring;
+        ctx.stroke();
+      }
       if (this.scale > 0.55 || n.id === hov || active) {
         ctx.fillStyle = on ? accent : txtCol;
         ctx.font = (on ? "600 " : n.kind === "category" ? "600 " : "500 ") + "11px " + fontStack;
