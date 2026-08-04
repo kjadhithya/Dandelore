@@ -82,30 +82,11 @@ export function CategoriesView() {
   );
   const sortLabel = SORT_OPTS.find(([k]) => k === s.sort)?.[1] || "Sort";
 
-  function NoteCard({ note }: { note: (typeof s.notes)[number] }) {
-    const [hover, setHover] = useState(false);
-    return (
-      <div
-        onClick={() => s.navigate(note.id)}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          s.onNoteContext(note.id, e.clientX, e.clientY);
-        }}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        style={{ cursor: "pointer", background: "var(--panel)", border: `1px solid ${hover ? "var(--edge)" : "var(--border-soft)"}`, borderRadius: 9, padding: "9px 12px" }}
-      >
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{note.title}</div>
-        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{note.folder || "—"}</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "26px 22px" }}>
-      <div style={{ maxWidth: 640, margin: "0 auto" }}>
+    <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "26px 30px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 22, color: "var(--ink)", marginBottom: 14 }}>Categories</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, flexWrap: isMobile ? "wrap" : "nowrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 22, flexWrap: isMobile ? "wrap" : "nowrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input)", border: "1px solid var(--border)", borderRadius: 9, padding: "7px 10px", flex: 1, minWidth: 140 }}>
             <SearchIcon size={14} />
             <input
@@ -162,66 +143,86 @@ export function CategoriesView() {
             style={{ border: "1px solid var(--border)", background: "var(--input)", borderRadius: 9, padding: "7px 11px", fontSize: 13, color: "var(--ink)", fontFamily: "inherit", width: 150, flex: "0 0 auto" }}
           />
         </div>
-        {catViewList.map((cat) => (
-          <div key={cat.name} style={{ marginBottom: 16 }}>
-            {s.catRenaming === cat.name ? (
-              <input
-                autoFocus
-                defaultValue={cat.name}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") s.renameCategory(cat.name, (e.target as HTMLInputElement).value);
-                  else if (e.key === "Escape") s.renameCategory(cat.name, cat.name);
-                }}
-                onBlur={(e) => s.renameCategory(cat.name, e.target.value)}
-                style={{ border: "1px solid var(--accent, #b0623b)", background: "var(--input)", borderRadius: 7, padding: "5px 10px", fontSize: 15, color: "var(--ink)", fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, marginBottom: 6 }}
-              />
-            ) : (
-              <div
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 9,
-                  padding: "4px 2px 8px",
-                  borderBottom: "1px solid var(--border-soft)",
-                  marginBottom: 8,
-                }}
-              >
-                <span
-                  onClick={() => s.goCategory(cat.name)}
-                  style={{ cursor: "pointer", fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 15.5, color: "var(--ink)" }}
-                >
-                  {cat.name}
-                </span>
-                <span style={{ fontSize: 11, color: "var(--ink)", background: "var(--code)", borderRadius: 20, padding: "1px 8px", flex: "0 0 auto" }}>{cat.notes.length}</span>
-                <div style={{ flex: 1 }} />
-                <div
-                  onClick={() => setMenuFor(menuFor === cat.name ? null : cat.name)}
-                  title="Edit category"
-                  style={{
-                    position: "relative",
-                    width: isMobile ? 40 : 32,
-                    height: isMobile ? 40 : 32,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    color: "var(--muted)",
-                  }}
-                >
-                  <EditIcon size={15} />
-                  {menuFor === cat.name && <CategoryRowMenu name={cat.name} onClose={() => setMenuFor(null)} />}
+        {catViewList.length > 0 && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 }}>
+            {catViewList.map((cat) => {
+              const shown = cat.notes.slice(0, 5);
+              return (
+                <div key={cat.name} style={{ border: "1px solid var(--border-soft)", borderRadius: 12, padding: "16px 18px", background: "var(--panel)" }}>
+                  {s.catRenaming === cat.name ? (
+                    <input
+                      autoFocus
+                      defaultValue={cat.name}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") s.renameCategory(cat.name, (e.target as HTMLInputElement).value);
+                        else if (e.key === "Escape") s.renameCategory(cat.name, cat.name);
+                      }}
+                      onBlur={(e) => s.renameCategory(cat.name, e.target.value)}
+                      style={{ border: "1px solid var(--accent, #b0623b)", background: "var(--input)", borderRadius: 7, padding: "5px 10px", fontSize: 16, color: "var(--ink)", fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, marginBottom: 4, width: "100%" }}
+                    />
+                  ) : (
+                    <div style={{ position: "relative", display: "flex", alignItems: "flex-start", gap: 6 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          onClick={() => s.goCategory(cat.name)}
+                          style={{ cursor: "pointer", fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 16.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                        >
+                          {cat.name}
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 1 }}>
+                          {cat.notes.length} note{cat.notes.length === 1 ? "" : "s"}
+                        </div>
+                      </div>
+                      <div
+                        onClick={() => setMenuFor(menuFor === cat.name ? null : cat.name)}
+                        title="Edit category"
+                        style={{
+                          position: "relative",
+                          flex: "0 0 auto",
+                          width: isMobile ? 40 : 30,
+                          height: isMobile ? 40 : 30,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          color: "var(--muted)",
+                        }}
+                      >
+                        <EditIcon size={14} />
+                        {menuFor === cat.name && <CategoryRowMenu name={cat.name} onClose={() => setMenuFor(null)} />}
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ height: 1, background: "var(--border-soft)", margin: "12px 0 10px" }} />
+                  {shown.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                      {shown.map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => s.navigate(n.id)}
+                          style={{ fontSize: 13, color: "var(--text)", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                        >
+                          {n.title || "Untitled"}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12.5, color: "var(--faint)" }}>No notes yet</div>
+                  )}
+                  {cat.notes.length > 0 && (
+                    <div
+                      onClick={() => s.goCategory(cat.name)}
+                      style={{ marginTop: 12, fontSize: 12.5, color: "var(--accent-text, var(--accent))", cursor: "pointer", fontWeight: 500 }}
+                    >
+                      View all ({cat.notes.length})
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 8 }}>
-              {cat.notes.map((n) => (
-                <NoteCard key={n.id} note={n} />
-              ))}
-            </div>
+              );
+            })}
           </div>
-        ))}
+        )}
         {catViewList.length === 0 && (
           <div style={{ padding: "50px 0", textAlign: "center", color: "var(--muted)", fontSize: 13.5 }}>
             {query.trim() ? "No matching categories" : "No categories yet"}

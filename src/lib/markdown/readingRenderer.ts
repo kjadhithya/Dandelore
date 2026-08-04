@@ -6,6 +6,7 @@ import type { TitleResolver } from "./liveEditor";
 export interface ReadingColors {
   code: string;
   ink: string;
+  text: string;
   mut: string;
   sage: string;
   accentText: string;
@@ -198,7 +199,7 @@ export function md2html(
             .map(
               (c) =>
                 '<td style="padding:7px 10px;border-bottom:1px solid var(--border-soft);color:' +
-                C.ink +
+                C.text +
                 ';">' +
                 inl(c) +
                 "</td>",
@@ -274,7 +275,7 @@ export function md2html(
         ' style="margin-top:4px;accent-color:' +
         C.sage +
         ';cursor:pointer;width:15px;height:15px;flex:0 0 auto;"><span style="' +
-        (done ? "color:var(--faint);text-decoration:line-through;" : "color:var(--ink);") +
+        (done ? "color:var(--faint);text-decoration:line-through;" : "color:var(--text);") +
         '">' +
         inl(txt) +
         "</span></li>";
@@ -293,7 +294,7 @@ export function md2html(
         listOpen.ul = true;
       }
       out +=
-        '<li style="margin:0;line-height:1.75;color:var(--ink);">' + inl(ln.replace(/^\s*[-*]\s+/, "")) + "</li>";
+        '<li style="margin:0;line-height:1.75;color:var(--text);">' + inl(ln.replace(/^\s*[-*]\s+/, "")) + "</li>";
       i++;
       continue;
     }
@@ -309,7 +310,7 @@ export function md2html(
         listOpen.ol = true;
       }
       out +=
-        '<li style="margin:0;line-height:1.75;color:var(--ink);">' + inl(ln.replace(/^\s*\d+\.\s+/, "")) + "</li>";
+        '<li style="margin:0;line-height:1.75;color:var(--text);">' + inl(ln.replace(/^\s*\d+\.\s+/, "")) + "</li>";
       i++;
       continue;
     }
@@ -328,7 +329,7 @@ export function md2html(
       para.push(lines[i]);
       i++;
     }
-    out += '<p style="margin:0;line-height:1.75;color:var(--ink);">' + para.map(inl).join("<br>") + "</p>";
+    out += '<p style="margin:0;line-height:1.75;color:var(--text);">' + para.map(inl).join("<br>") + "</p>";
   }
   closeLists();
   return out;

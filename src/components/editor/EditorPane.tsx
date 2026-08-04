@@ -21,8 +21,8 @@ import type { Note } from "@/types/vault";
 
 const iconBtnStyle: React.CSSProperties = {
   cursor: "pointer",
-  width: 32,
-  height: 32,
+  width: 37,
+  height: 37,
   borderRadius: 8,
   display: "flex",
   alignItems: "center",
@@ -41,7 +41,7 @@ function IconBtn({ title, onClick, active, children }: { title: string; onClick:
       onMouseLeave={() => setHover(false)}
       style={{
         ...iconBtnStyle,
-        ...(isMobile ? { width: 40, height: 40 } : {}),
+        ...(isMobile ? { width: 42, height: 42 } : {}),
         background: active || hover ? "var(--active)" : "transparent",
         color: active || hover ? "var(--ink)" : "var(--muted)",
       }}
@@ -261,27 +261,27 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
         <div
           onClick={side.canBack ? side.goBack : undefined}
           title="Back"
-          style={{ width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", ...(side.canBack ? { cursor: "pointer", color: "var(--muted)" } : { color: "var(--border)", pointerEvents: "none" }) }}
+          style={{ width: 37, height: 37, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", ...(side.canBack ? { cursor: "pointer", color: "var(--muted)" } : { color: "var(--border)", pointerEvents: "none" }) }}
         >
-          <BackIcon />
+          <BackIcon size={20} />
         </div>
         <div
           onClick={side.canForward ? side.goForward : undefined}
           title="Forward"
-          style={{ width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", ...(side.canForward ? { cursor: "pointer", color: "var(--muted)" } : { color: "var(--border)", pointerEvents: "none" }) }}
+          style={{ width: 37, height: 37, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", ...(side.canForward ? { cursor: "pointer", color: "var(--muted)" } : { color: "var(--border)", pointerEvents: "none" }) }}
         >
-          <ForwardIcon />
+          <ForwardIcon size={20} />
         </div>
         <div style={{ flex: 1 }} />
         <IconBtn title={side.reading ? "Edit" : "Reading view"} onClick={side.toggleReading}>
-          <EyeIcon on={side.reading} />
+          <EyeIcon on={side.reading} size={20} />
         </IconBtn>
         <IconBtn title="Add property" onClick={side.openMeta}>
-          <PlusIcon />
+          <PlusIcon size={20} />
         </IconBtn>
         <div ref={noteMenuRef} style={{ position: "relative", flex: "0 0 auto" }}>
           <IconBtn title="More" onClick={side.toggleNoteMenu}>
-            <MoreIcon />
+            <MoreIcon size={20} />
           </IconBtn>
           {side.noteMenuOpen && (
             <div
@@ -360,7 +360,7 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
           )}
         </div>
         <IconBtn title="Toggle backlinks" active={side.showBacklinks} onClick={side.toggleBacklinks}>
-          <BacklinksIcon />
+          <BacklinksIcon size={20} />
         </IconBtn>
       </div>
       <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 30px 80px" }}>

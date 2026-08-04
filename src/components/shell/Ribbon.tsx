@@ -26,8 +26,8 @@ function RibbonButton({
   const { accent } = useDerivedTheme();
   const [hover, setHover] = React.useState(false);
   const style: React.CSSProperties = {
-    width: 36,
-    height: 36,
+    width: 41,
+    height: 41,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -66,7 +66,7 @@ export function Ribbon() {
   return (
     <div
       style={{
-        width: 46,
+        width: 52,
         flex: "0 0 auto",
         background: "var(--ribbon)",
         borderRight: "1px solid var(--border)",
@@ -78,26 +78,26 @@ export function Ribbon() {
       }}
     >
       <RibbonButton title="Graph view" active={kind === "graph"} onClick={goGraph}>
-        <GraphIcon />
+        <GraphIcon size={21} />
       </RibbonButton>
       <RibbonButton title="Categories" active={kind === "categories"} onClick={goCategories}>
-        <CategoriesIcon />
+        <CategoriesIcon size={21} />
       </RibbonButton>
       <RibbonButton title="Calendar / daily notes" active={kind === "journal"} onClick={goJournal}>
-        <JournalIcon />
+        <JournalIcon size={21} />
       </RibbonButton>
       <RibbonButton title="Bookmarks" active={kind === "bookmarks"} onClick={goBookmarks}>
-        <BookmarkIcon />
+        <BookmarkIcon size={21} />
       </RibbonButton>
       <RibbonButton title="Command palette (⌘P)" onClick={openCmd}>
-        <CommandIcon />
+        <CommandIcon size={21} />
       </RibbonButton>
       <div style={{ marginTop: "auto" }} />
       <RibbonButton title="Settings" onClick={openSettings}>
-        <SettingsIcon />
+        <SettingsIcon size={21} />
       </RibbonButton>
       <RibbonButton title="Toggle sidebar" active={leftOpen && sideMode === "files" && false} onClick={toggleLeft}>
-        <SidebarToggleIcon />
+        <SidebarToggleIcon size={21} />
       </RibbonButton>
     </div>
   );

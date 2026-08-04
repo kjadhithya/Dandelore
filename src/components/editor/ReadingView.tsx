@@ -19,6 +19,7 @@ export function ReadingView({ note }: { note: Note }) {
       md2html(note.content, note.attachments || {}, 0, (t) => !!byTitle(t), {
         code: "var(--code)",
         ink: "var(--ink)",
+        text: "var(--text)",
         mut: "var(--muted)",
         sage: "var(--sage)",
         accentText,
