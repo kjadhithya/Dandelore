@@ -2,15 +2,7 @@
 import React, { useState } from "react";
 import { useVaultStore, sortNotes } from "@/lib/store/useVaultStore";
 import { CategoriesIcon, SortIcon } from "@/components/icons/Icons";
-
-const SORT_DEFS: [string, string][] = [
-  ["name-az", "Name (A to Z)"],
-  ["name-za", "Name (Z to A)"],
-  ["mod-new", "Modified (new to old)"],
-  ["mod-old", "Modified (old to new)"],
-  ["created-new", "Created (new to old)"],
-  ["created-old", "Created (old to new)"],
-];
+import { SORT_OPTS } from "@/lib/theme/tokens";
 
 export function CategoryPage({ name }: { name: string }) {
   const s = useVaultStore();
@@ -19,7 +11,7 @@ export function CategoryPage({ name }: { name: string }) {
     s.notes.filter((n) => n.category === name),
     s.sort,
   );
-  const sortLabel = SORT_DEFS.find(([k]) => k === s.sort)?.[1] || "Sort";
+  const sortLabel = SORT_OPTS.find(([k]) => k === s.sort)?.[1] || "Sort";
 
   return (
     <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "26px 22px" }}>
@@ -45,7 +37,7 @@ export function CategoryPage({ name }: { name: string }) {
                 onMouseLeave={() => setSortOpen(false)}
                 style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 10, minWidth: 200, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(25,20,12,.5)", padding: 5 }}
               >
-                {SORT_DEFS.map(([key, label]) => (
+                {SORT_OPTS.map(([key, label]) => (
                   <div
                     key={key}
                     onClick={() => {

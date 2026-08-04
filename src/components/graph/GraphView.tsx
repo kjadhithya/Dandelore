@@ -15,7 +15,9 @@ export function GraphView({ split = false }: { split?: boolean }) {
   const openOrCreate = useVaultStore((s) => s.openOrCreate);
 
   const themeRef = useRef(theme);
-  themeRef.current = theme;
+  useEffect(() => {
+    themeRef.current = theme;
+  }, [theme]);
 
   useEffect(() => {
     if (!hostRef.current) return;

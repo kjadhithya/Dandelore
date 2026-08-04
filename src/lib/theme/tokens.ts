@@ -1,4 +1,4 @@
-import type { AppFontName, ThemeName } from "@/types/vault";
+import type { AppFontName, SortKey, ThemeName } from "@/types/vault";
 
 export const THEME_BG: Record<ThemeName, string> = {
   Light: "#f7f7f7",
@@ -21,6 +21,15 @@ export const FONT_OPTS: AppFontName[] = [
   "System",
   "Lora",
   "Mono",
+];
+
+export const SORT_OPTS: [SortKey, string][] = [
+  ["name-az", "Name (A to Z)"],
+  ["name-za", "Name (Z to A)"],
+  ["mod-new", "Modified (new to old)"],
+  ["mod-old", "Modified (old to new)"],
+  ["created-new", "Created (new to old)"],
+  ["created-old", "Created (old to new)"],
 ];
 
 export const THEME_KEY = (t: ThemeName | null | undefined): string =>

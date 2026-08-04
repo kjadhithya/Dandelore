@@ -1,7 +1,8 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useVaultStore, sortNotes } from "@/lib/store/useVaultStore";
-import { CategoriesIcon, SearchIcon, EditIcon, TrashIcon } from "@/components/icons/Icons";
+import { SearchIcon, SortIcon, EditIcon, TrashIcon } from "@/components/icons/Icons";
+import { SORT_OPTS } from "@/lib/theme/tokens";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
 function CategoryRowMenu({ name, onClose }: { name: string; onClose: () => void }) {
@@ -67,6 +68,7 @@ export function CategoriesView() {
   const [newCat, setNewCat] = useState("");
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [sortOpen, setSortOpen] = useState(false);
 
   const catViewList = useMemo(
     () =>
@@ -78,7 +80,7 @@ export function CategoriesView() {
         })),
     [s.categories, s.notes, s.sort, query],
   );
-  const uncatNotes = useMemo(() => sortNotes(s.notes.filter((n) => !n.category), s.sort), [s.notes, s.sort]);
+  const sortLabel = SORT_OPTS.find(([k]) => k === s.sort)?.[1] || "Sort";
 
   function NoteCard({ note }: { note: (typeof s.notes)[number] }) {
     const [hover, setHover] = useState(false);
@@ -102,8 +104,50 @@ export function CategoriesView() {
   return (
     <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "26px 22px" }}>
       <div style={{ maxWidth: 640, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-          <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 22, color: "var(--ink)", flex: 1 }}>Categories</div>
+        <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 22, color: "var(--ink)", marginBottom: 14 }}>Categories</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, flexWrap: isMobile ? "wrap" : "nowrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input)", border: "1px solid var(--border)", borderRadius: 9, padding: "7px 10px", flex: 1, minWidth: 140 }}>
+            <SearchIcon size={14} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search categories..."
+              style={{ border: "none", background: "transparent", fontSize: 13, color: "var(--ink)", flex: 1, minWidth: 0, fontFamily: "inherit" }}
+            />
+            {query && (
+              <div onClick={() => setQuery("")} title="Clear" style={{ flex: "0 0 auto", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", cursor: "pointer", color: "var(--faint)" }}>
+                ×
+              </div>
+            )}
+          </div>
+          <div style={{ position: "relative", flex: "0 0 auto" }}>
+            <div
+              onClick={() => setSortOpen((v) => !v)}
+              style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ink)", border: "1px solid var(--border)", background: "var(--input)", borderRadius: 9, padding: "7px 11px" }}
+            >
+              <SortIcon size={15} />
+              {!isMobile && sortLabel}
+            </div>
+            {sortOpen && (
+              <div
+                onMouseLeave={() => setSortOpen(false)}
+                style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 10, minWidth: 200, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(25,20,12,.5)", padding: 5 }}
+              >
+                {SORT_OPTS.map(([key, label]) => (
+                  <div
+                    key={key}
+                    onClick={() => {
+                      s.setSort(key);
+                      setSortOpen(false);
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 11px", fontSize: 12.5, color: "var(--ink)", cursor: "pointer", borderRadius: 6, background: s.sort === key ? "var(--active)" : "transparent" }}
+                  >
+                    {label}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <input
             value={newCat}
             onChange={(e) => setNewCat(e.target.value)}
@@ -115,22 +159,8 @@ export function CategoriesView() {
               }
             }}
             placeholder="+ New category"
-            style={{ border: "1px solid var(--border)", background: "var(--input)", borderRadius: 8, padding: "7px 11px", fontSize: 13, color: "var(--ink)", fontFamily: "inherit", width: 180, maxWidth: "100%" }}
+            style={{ border: "1px solid var(--border)", background: "var(--input)", borderRadius: 9, padding: "7px 11px", fontSize: 13, color: "var(--ink)", fontFamily: "inherit", width: 150, flex: "0 0 auto" }}
           />
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--input)", border: "1px solid var(--border)", borderRadius: 9, padding: "7px 10px", marginBottom: 18 }}>
-          <SearchIcon size={14} />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search categories..."
-            style={{ border: "none", background: "transparent", fontSize: 13, color: "var(--ink)", flex: 1, minWidth: 0, fontFamily: "inherit" }}
-          />
-          {query && (
-            <div onClick={() => setQuery("")} title="Clear" style={{ flex: "0 0 auto", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", cursor: "pointer", color: "var(--faint)" }}>
-              ×
-            </div>
-          )}
         </div>
         {catViewList.map((cat) => (
           <div key={cat.name} style={{ marginBottom: 16 }}>
@@ -157,7 +187,6 @@ export function CategoriesView() {
                   marginBottom: 8,
                 }}
               >
-                <CategoriesIcon size={15} />
                 <span
                   onClick={() => s.goCategory(cat.name)}
                   style={{ cursor: "pointer", fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 15.5, color: "var(--ink)" }}
@@ -193,16 +222,9 @@ export function CategoriesView() {
             </div>
           </div>
         ))}
-        {!query.trim() && uncatNotes.length > 0 && (
-          <div style={{ marginTop: 6 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: "var(--faint)", padding: "4px 2px 8px", borderBottom: "1px solid var(--border-soft)", marginBottom: 8 }}>
-              Uncategorized
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 8 }}>
-              {uncatNotes.map((n) => (
-                <NoteCard key={n.id} note={n} />
-              ))}
-            </div>
+        {catViewList.length === 0 && (
+          <div style={{ padding: "50px 0", textAlign: "center", color: "var(--muted)", fontSize: 13.5 }}>
+            {query.trim() ? "No matching categories" : "No categories yet"}
           </div>
         )}
       </div>
