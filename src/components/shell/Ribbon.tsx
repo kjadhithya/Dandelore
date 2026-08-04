@@ -5,6 +5,7 @@ import {
   GraphIcon,
   CategoriesIcon,
   JournalIcon,
+  BookmarkIcon,
   CommandIcon,
   SettingsIcon,
   SidebarToggleIcon,
@@ -55,6 +56,7 @@ export function Ribbon() {
   const goGraph = useVaultStore((s) => s.goGraph);
   const goCategories = useVaultStore((s) => s.goCategories);
   const goJournal = useVaultStore((s) => s.goJournal);
+  const goBookmarks = useVaultStore((s) => s.goBookmarks);
   const openCmd = useVaultStore((s) => s.openCmd);
   const openSettings = useVaultStore((s) => s.openSettings);
   const toggleLeft = useVaultStore((s) => s.toggleLeft);
@@ -83,6 +85,9 @@ export function Ribbon() {
       </RibbonButton>
       <RibbonButton title="Calendar / daily notes" active={kind === "journal"} onClick={goJournal}>
         <JournalIcon />
+      </RibbonButton>
+      <RibbonButton title="Bookmarks" active={kind === "bookmarks"} onClick={goBookmarks}>
+        <BookmarkIcon />
       </RibbonButton>
       <RibbonButton title="Command palette (⌘P)" onClick={openCmd}>
         <CommandIcon />

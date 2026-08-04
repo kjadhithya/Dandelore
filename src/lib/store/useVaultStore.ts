@@ -85,6 +85,7 @@ export interface VaultStore extends VaultState {
   goGraph: () => void;
   goJournal: () => void;
   goCategories: () => void;
+  goBookmarks: () => void;
   goHome: () => void;
   showFiles: () => void;
   selectTab: (i: number) => void;
@@ -129,6 +130,7 @@ export interface VaultStore extends VaultState {
   deleteNote: (id: string) => void;
   duplicateNote: (id: string) => void;
   deleteCurrent: () => void;
+  toggleBookmark: (id: string) => void;
   onTitle: (v: string) => void;
   setNoteContent: (id: string, content: string) => void;
 
@@ -218,6 +220,7 @@ export interface VaultStore extends VaultState {
   bulkDelete: () => void;
   onAppFont: (v: AppFontName) => void;
   onNoteFont: (v: AppFontName) => void;
+  onTitleFont: (v: AppFontName) => void;
 
   // import/export/attach
   exportJson: () => void;
@@ -314,6 +317,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
 
   appFont: "Sans",
   noteFont: "Serif",
+  titleFont: "Serif",
 
   reading: false,
 
@@ -466,6 +470,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   goGraph: () => get().navView({ kind: "graph" }),
   goJournal: () => get().navView({ kind: "journal" }),
   goCategories: () => get().navView({ kind: "categories" }),
+  goBookmarks: () => get().navView({ kind: "bookmarks" }),
   goHome: () => get().navView({ kind: "home" }),
   showFiles: () => set({ sideMode: "files", leftOpen: true }),
   selectTab: (i) =>
@@ -691,6 +696,8 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     const id = get().curId();
     if (id) get().deleteNote(id);
   },
+  toggleBookmark: (id) =>
+    set((s) => ({ notes: s.notes.map((n) => (n.id === id ? { ...n, bookmarked: !n.bookmarked } : n)) })),
   onTitle: (v) => {
     const id = get().curId();
     const iso = new Date().toISOString();
@@ -1077,6 +1084,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   },
   onAppFont: (v) => set({ appFont: v }),
   onNoteFont: (v) => set({ noteFont: v }),
+  onTitleFont: (v) => set({ titleFont: v }),
 
   // ---------- import/export/attach ----------
   exportJson: () => {

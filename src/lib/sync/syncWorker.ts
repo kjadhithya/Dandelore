@@ -15,6 +15,7 @@ interface RemoteNoteRow {
   tags: string[];
   date: string | null;
   daily: boolean;
+  bookmarked: boolean;
   modified: string;
   deleted_at: string | null;
 }
@@ -30,6 +31,7 @@ function noteToRow(n: Note, vaultId: string) {
     tags: n.tags || [],
     date: n.date || null,
     daily: !!n.daily,
+    bookmarked: !!n.bookmarked,
     modified: n.modified || new Date().toISOString(),
     deleted_at: n.deletedAt || null,
   };
@@ -45,6 +47,7 @@ function rowToNote(r: RemoteNoteRow): Note {
     tags: r.tags || [],
     date: r.date || "",
     daily: r.daily,
+    bookmarked: !!r.bookmarked,
     modified: r.modified,
     attachments: {},
     deletedAt: r.deleted_at,

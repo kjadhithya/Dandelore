@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans, IBM_Plex_Mono, Spectral } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Mono, Spectral, Inter, Lora } from "next/font/google";
 import "./globals.css";
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -21,6 +21,19 @@ const spectral = Spectral({
   style: ["normal", "italic"],
 });
 
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+});
+
+const lora = Lora({
+  variable: "--font-lora",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+});
+
 export const metadata: Metadata = {
   title: "Dandelore",
   description: "A personal, cloud-synced knowledge base.",
@@ -34,7 +47,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${ibmPlexSans.variable} ${ibmPlexMono.variable} ${spectral.variable}`}
+      className={`${ibmPlexSans.variable} ${ibmPlexMono.variable} ${spectral.variable} ${inter.variable} ${lora.variable}`}
     >
       <body>{children}</body>
     </html>

@@ -7,6 +7,7 @@ import { EditorPane, useMainSide, useSplitSide } from "@/components/editor/Edito
 import { GraphView } from "@/components/graph/GraphView";
 import { JournalView } from "@/components/journal/JournalView";
 import { CategoriesView } from "@/components/categories/CategoriesView";
+import { BookmarksView } from "@/components/bookmarks/BookmarksView";
 import { BackIcon, ForwardIcon, NewNoteIcon, GripIcon } from "@/components/icons/Icons";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
@@ -122,6 +123,7 @@ function PaneContent({ split }: { split?: boolean }) {
   if (kind === "graph") return (<><NavBar split={split} /><GraphView split={split} /></>);
   if (kind === "journal") return (<><NavBar split={split} /><JournalView /></>);
   if (kind === "categories") return (<><NavBar split={split} /><CategoriesView /></>);
+  if (kind === "bookmarks") return (<><NavBar split={split} /><BookmarksView /></>);
   if (kind === "home") return (<><NavBar split={split} /><HomeView split={split} /></>);
   return (<><NavBar split={split} /><EmptyView /></>);
 }

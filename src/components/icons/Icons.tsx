@@ -26,6 +26,14 @@ export function CategoriesIcon({ size = 19 }: IconProps) {
   );
 }
 
+export function BookmarkIcon({ size = 18, filled }: IconProps & { filled?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6.5 4.5a1.5 1.5 0 011.5-1.5h8a1.5 1.5 0 011.5 1.5v15.6a.6.6 0 01-.93.5L12 16.9l-4.57 3.7a.6.6 0 01-.93-.5V4.5z" />
+    </svg>
+  );
+}
+
 export function JournalIcon({ size = 18 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">

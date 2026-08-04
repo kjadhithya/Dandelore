@@ -42,6 +42,14 @@ export function NoteContextMenu() {
         {!s.ctxMove ? (
           <>
             <Item onClick={() => s.ctxOpenNote()}>Open in new tab</Item>
+            <Item
+              onClick={() => {
+                s.toggleBookmark(s.ctxMenu!.id);
+                s.closeCtx();
+              }}
+            >
+              {s.notes.find((n) => n.id === s.ctxMenu!.id)?.bookmarked ? "Remove bookmark" : "Bookmark"}
+            </Item>
             <Item onClick={() => s.ctxDuplicate()}>Duplicate</Item>
             <Item onClick={() => s.ctxMoveStart()}>Move file to…</Item>
             <Item onClick={() => s.ctxRename()}>Rename…</Item>

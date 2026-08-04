@@ -14,6 +14,7 @@ function viewLabel(t: TabState, notes: ReturnType<typeof useVaultStore.getState>
   if (v.kind === "graph") return { label: "Graph view", dot: "#6f92a0" };
   if (v.kind === "journal") return { label: "Calendar", dot: accent };
   if (v.kind === "categories") return { label: "Categories", dot: sage };
+  if (v.kind === "bookmarks") return { label: "Bookmarks", dot: accent };
   return { label: "New tab", dot: "var(--edge)" };
 }
 

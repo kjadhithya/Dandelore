@@ -3,6 +3,7 @@ import React, { useMemo } from "react";
 import { md2html } from "@/lib/markdown/readingRenderer";
 import { useVaultStore } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
+import { FONTS } from "@/lib/theme/tokens";
 import type { Note } from "@/types/vault";
 
 export function ReadingView({ note }: { note: Note }) {
@@ -10,6 +11,7 @@ export function ReadingView({ note }: { note: Note }) {
   const openOrCreate = useVaultStore((s) => s.openOrCreate);
   const openSearch = useVaultStore((s) => s.openSearch);
   const setNoteContent = useVaultStore((s) => s.setNoteContent);
+  const noteFont = useVaultStore((s) => s.noteFont);
   const { accentText, accentFadedRgba } = useDerivedTheme();
 
   const html = useMemo(
@@ -63,7 +65,7 @@ export function ReadingView({ note }: { note: Note }) {
   return (
     <div
       className="liveedit readview"
-      style={{ fontFamily: "var(--font-spectral)", fontSize: 15.5, color: "var(--ink)" }}
+      style={{ fontFamily: FONTS[noteFont] || FONTS.Serif, fontSize: 15.5, color: "var(--ink)" }}
       onClick={onClick}
       dangerouslySetInnerHTML={{ __html: html }}
     />

@@ -11,7 +11,10 @@ body {
 }
 
 body {
-  background: #d8cdb4;
+  /* Matches the default (Light Warm) --bg below; VaultShell overrides this
+   * inline once mounted so the body tracks whichever theme is active
+   * instead of flashing a fixed color regardless of theme. */
+  background: #faf7f2;
   font-family: var(--font-ibm-plex-sans), system-ui, sans-serif;
 }
 
@@ -66,16 +69,16 @@ select:focus {
   --desk1: #e4dac2;
   --desk2: #d3c8ae;
   --desk3: #cabd9f;
-  --bg: #faf5ea;
-  --panel: #efe7d5;
-  --chrome: #ece3d0;
-  --ribbon: #e6ddc9;
-  --input: #f7f1e4;
-  --active: #e0d6bf;
-  --code: #efe6d3;
-  --border: #ddd2bb;
-  --border-soft: #e6dcc7;
-  --edge: #c3b79a;
+  --bg: #faf7f2;
+  --panel: #f3efe6;
+  --chrome: #efeae0;
+  --ribbon: #ece6d9;
+  --input: #fbf9f4;
+  --active: #e6e0d1;
+  --code: #f0ebe0;
+  --border: #e2dcc9;
+  --border-soft: #ece6d8;
+  --edge: #d0c8b0;
   --ink: #3c3324;
   --text: #6f6552;
   --muted: #8a7f6a;
@@ -86,16 +89,16 @@ select:focus {
   --desk1: #e4dac2;
   --desk2: #d3c8ae;
   --desk3: #cabd9f;
-  --bg: #faf5ea;
-  --panel: #efe7d5;
-  --chrome: #ece3d0;
-  --ribbon: #e6ddc9;
-  --input: #f7f1e4;
-  --active: #e0d6bf;
-  --code: #efe6d3;
-  --border: #ddd2bb;
-  --border-soft: #e6dcc7;
-  --edge: #c3b79a;
+  --bg: #faf7f2;
+  --panel: #f3efe6;
+  --chrome: #efeae0;
+  --ribbon: #ece6d9;
+  --input: #fbf9f4;
+  --active: #e6e0d1;
+  --code: #f0ebe0;
+  --border: #e2dcc9;
+  --border-soft: #ece6d8;
+  --edge: #d0c8b0;
   --ink: #3c3324;
   --text: #6f6552;
   --muted: #8a7f6a;
@@ -106,7 +109,7 @@ select:focus {
   --desk1: #17140f;
   --desk2: #131009;
   --desk3: #0e0c07;
-  --bg: #1d1b17;
+  --bg: #15130f;
   --panel: #232019;
   --chrome: #201d17;
   --ribbon: #2a271f;
@@ -146,7 +149,7 @@ select:focus {
   --desk1: #141414;
   --desk2: #101010;
   --desk3: #0c0c0c;
-  --bg: #1c1c1c;
+  --bg: #141414;
   --panel: #262626;
   --chrome: #202020;
   --ribbon: #2c2c2c;
@@ -181,21 +184,21 @@ select:focus {
   opacity: 0.34;
 }
 .liveedit .ln.h1 {
-  font-family: var(--font-spectral), serif;
+  font-family: var(--font-title, var(--font-spectral)), serif;
   font-weight: 600;
   font-size: 1.75em;
   line-height: 1.2;
   margin: 2px 0 4px;
 }
 .liveedit .ln.h2 {
-  font-family: var(--font-spectral), serif;
+  font-family: var(--font-title, var(--font-spectral)), serif;
   font-weight: 600;
   font-size: 1.4em;
   line-height: 1.25;
   margin: 12px 0 3px;
 }
 .liveedit .ln.h3 {
-  font-family: var(--font-spectral), serif;
+  font-family: var(--font-title, var(--font-spectral)), serif;
   font-weight: 600;
   font-size: 1.18em;
   margin: 10px 0 2px;
@@ -203,7 +206,7 @@ select:focus {
 .liveedit .ln.h4,
 .liveedit .ln.h5,
 .liveedit .ln.h6 {
-  font-family: var(--font-spectral), serif;
+  font-family: var(--font-title, var(--font-spectral)), serif;
   font-weight: 600;
   font-size: 1.03em;
   margin: 8px 0 2px;
@@ -303,6 +306,18 @@ select:focus {
 }
 .readview .wl.missing {
   color: var(--accent-faded, rgba(201, 138, 138, 0.55));
+}
+
+/* Native date-input calendar-picker icons ignore currentColor entirely —
+ * color-scheme is the only way the browser lets us tell it the icon should
+ * render light-on-dark instead of defaulting to black. */
+.vault[data-vtheme="dark"] input.date-themed,
+.vault[data-vtheme="dark-warm"] input.date-themed {
+  color-scheme: dark;
+}
+.vault[data-vtheme="light"] input.date-themed,
+.vault[data-vtheme="light-warm"] input.date-themed {
+  color-scheme: light;
 }
 
 .resizer {

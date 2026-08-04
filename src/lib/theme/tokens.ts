@@ -2,16 +2,16 @@ import type { AppFontName, ThemeName } from "@/types/vault";
 
 export const THEME_BG: Record<ThemeName, string> = {
   Light: "#f7f7f7",
-  "Light Warm": "#faf5ea",
-  Dark: "#1c1c1c",
-  "Dark Warm": "#1d1b17",
+  "Light Warm": "#faf7f2",
+  Dark: "#141414",
+  "Dark Warm": "#15130f",
 };
 
 export const FONTS: Record<AppFontName, string> = {
-  Sans: "var(--font-ibm-plex-sans), system-ui, sans-serif",
+  Sans: "var(--font-inter), system-ui, sans-serif",
   Serif: "var(--font-spectral), Georgia, serif",
   System: "system-ui, -apple-system, sans-serif",
-  Georgia: "Georgia, 'Times New Roman', serif",
+  Lora: "var(--font-lora), Georgia, serif",
   Mono: "var(--font-ibm-plex-mono), monospace",
 };
 
@@ -19,7 +19,7 @@ export const FONT_OPTS: AppFontName[] = [
   "Sans",
   "Serif",
   "System",
-  "Georgia",
+  "Lora",
   "Mono",
 ];
 
@@ -33,7 +33,7 @@ export const THEME_SWATCH: Record<
   { bar: string; bg: string; dot: string }
 > = {
   Light: { bar: "#e0e0e0", bg: "#f5f5f5", dot: "#c9c9c9" },
-  "Light Warm": { bar: "#e8ddc4", bg: "#f9f2e2", dot: "#d8c8a6" },
+  "Light Warm": { bar: "#ece6d9", bg: "#faf7f2", dot: "#d0c8b0" },
   Dark: { bar: "#2c2c2c", bg: "#141414", dot: "#404040" },
   "Dark Warm": { bar: "#2c2820", bg: "#181510", dot: "#463f30" },
 };

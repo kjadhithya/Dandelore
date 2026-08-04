@@ -227,6 +227,7 @@ export function SettingsModal() {
           </div>
           {fontRow("App font", s.appFont, (v) => s.onAppFont(v as never))}
           {fontRow("Note font", s.noteFont, (v) => s.onNoteFont(v as never))}
+          {fontRow("Title font", s.titleFont, (v) => s.onTitleFont(v as never))}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <span style={{ fontSize: 13.5, color: "var(--ink)" }}>Primary color</span>
             {accentSwatches}
@@ -262,6 +263,7 @@ export function SettingsModal() {
           </div>
           {fontRow("App font", s.appFont, (v) => s.onAppFont(v as never))}
           {fontRow("Note font", s.noteFont, (v) => s.onNoteFont(v as never))}
+          {fontRow("Title font", s.titleFont, (v) => s.onTitleFont(v as never))}
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ flex: 1, fontSize: 13.5, color: "var(--ink)" }}>Primary color</span>
             {accentSwatches}

@@ -15,6 +15,7 @@ import {
   SplitDownIcon,
   BackIcon,
   ForwardIcon,
+  BookmarkIcon,
 } from "@/components/icons/Icons";
 import type { Note } from "@/types/vault";
 
@@ -116,7 +117,7 @@ function TitleField({ value, onChange }: { value: string; onChange: (v: string) 
       style={{
         border: "none",
         background: "transparent",
-        fontFamily: "var(--font-spectral)",
+        fontFamily: "var(--font-title, var(--font-spectral))",
         fontWeight: 600,
         fontSize: 31,
         color: "var(--ink)",
@@ -131,9 +132,112 @@ function TitleField({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
+/** Free-text tag input with a dropdown of existing tags that match what's
+ * typed so far (excluding tags already on this note) — lets you reuse a tag
+ * instead of retyping it and risking a near-duplicate. */
+function TagsField({
+  tags,
+  tagDraft,
+  onTagDraft,
+  onTagKey,
+  allTags,
+}: {
+  tags: { name: string; onRemove: () => void }[];
+  tagDraft: string;
+  onTagDraft: (v: string) => void;
+  onTagKey: (key: string, draft: string) => void;
+  allTags: string[];
+}) {
+  const { accentText } = useDerivedTheme();
+  const [focused, setFocused] = useState(false);
+  const applied = new Set(tags.map((t) => t.name));
+  const filtered = allTags
+    .filter((t) => !applied.has(t))
+    .filter((t) => !tagDraft || t.toLowerCase().includes(tagDraft.toLowerCase()))
+    .slice(0, 8);
+  const showDropdown = focused && filtered.length > 0;
+
+  function pick(name: string) {
+    onTagKey("Enter", name);
+    onTagDraft("");
+  }
+
+  return (
+    <div style={{ flex: 1, position: "relative" }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 6,
+          border: "1px solid var(--border)",
+          background: "var(--input)",
+          borderRadius: 8,
+          padding: "5px 8px",
+        }}
+      >
+        {tags.map((tc) => (
+          <span
+            key={tc.name}
+            style={{ display: "flex", alignItems: "center", gap: 5, color: accentText, fontFamily: "var(--font-ibm-plex-mono)", background: "var(--code)", borderRadius: 6, padding: "2px 5px 2px 8px", fontSize: 12.5 }}
+          >
+            #{tc.name}
+            <span onClick={tc.onRemove} style={{ cursor: "pointer", color: "var(--faint)" }}>
+              ×
+            </span>
+          </span>
+        ))}
+        <input
+          value={tagDraft}
+          onChange={(e) => onTagDraft(e.target.value)}
+          onKeyDown={(e) => onTagKey(e.key, tagDraft)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setTimeout(() => setFocused(false), 120)}
+          placeholder={tags.length ? "Add tag…" : "+ tag"}
+          style={{ flex: 1, minWidth: 70, border: "none", background: "transparent", outline: "none", fontSize: 12.5, color: "var(--ink)", fontFamily: "var(--font-ibm-plex-mono)", padding: "2px 2px" }}
+        />
+      </div>
+      {showDropdown && (
+        <div
+          className="vscroll"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: 0,
+            right: 0,
+            background: "var(--panel)",
+            border: "1px solid var(--border)",
+            borderRadius: 8,
+            boxShadow: "0 14px 32px -10px rgba(20,15,8,.4)",
+            zIndex: 10,
+            maxHeight: 180,
+            overflowY: "auto",
+            padding: 4,
+          }}
+        >
+          {filtered.map((t) => (
+            <div
+              key={t}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => pick(t)}
+              style={{ padding: "6px 9px", fontSize: 12.5, color: "var(--ink)", cursor: "pointer", borderRadius: 5, fontFamily: "var(--font-ibm-plex-mono)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--active)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              #{t}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function EditorPane({ note, side }: { note: Note; side: Side }) {
   const { accentText, accent } = useDerivedTheme();
   const openConfirm = useVaultStore((s) => s.openConfirm);
+  const allTagsFn = useVaultStore((s) => s.allTags);
+  const toggleBookmark = useVaultStore((s) => s.toggleBookmark);
 
   const hasCat = !!note.category;
   const tags = side.tagChips;
@@ -185,6 +289,15 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
             >
               {!side.noteMenuMove ? (
                 <div>
+                  <MenuItem
+                    onClick={() => {
+                      toggleBookmark(note.id);
+                      side.toggleNoteMenu();
+                    }}
+                    icon={<BookmarkIcon size={15} filled={note.bookmarked} />}
+                  >
+                    {note.bookmarked ? "Remove bookmark" : "Bookmark note"}
+                  </MenuItem>
                   <MenuItem onClick={side.menuDuplicate}>Duplicate</MenuItem>
                   <MenuItem onClick={side.menuMoveStart}>
                     <span style={{ flex: 1 }}>Move file to…</span>
@@ -250,38 +363,23 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
               </div>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                 <span style={{ width: 74, color: "var(--faint)", fontSize: 12, flex: "0 0 auto", paddingTop: 5 }}>Tags</span>
-                <div style={{ flex: 1, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-                  {tags.map((tc) => (
-                    <span
-                      key={tc.name}
-                      style={{ display: "flex", alignItems: "center", gap: 5, color: accentText, fontFamily: "var(--font-ibm-plex-mono)", background: "var(--code)", borderRadius: 6, padding: "2px 5px 2px 8px" }}
-                    >
-                      #{tc.name}
-                      <span onClick={tc.onRemove} style={{ cursor: "pointer", color: "var(--faint)" }}>
-                        ×
-                      </span>
-                    </span>
-                  ))}
-                  <input
-                    value={side.tagDraft}
-                    onChange={(e) => side.onTagDraft(e.target.value)}
-                    onKeyDown={(e) => side.onTagKey(e.key, side.tagDraft)}
-                    placeholder="+ tag"
-                    style={{ width: 80, border: "none", background: "transparent", fontSize: 12.5, color: "var(--ink)", fontFamily: "var(--font-ibm-plex-mono)" }}
-                  />
-                </div>
+                <TagsField tags={tags} tagDraft={side.tagDraft} onTagDraft={side.onTagDraft} onTagKey={side.onTagKey} allTags={allTagsFn()} />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ width: 74, color: "var(--faint)", fontSize: 12, flex: "0 0 auto" }}>Created</span>
                 <input
                   type="date"
+                  className="date-themed"
                   value={side.dateVal}
                   onChange={(e) => side.onDate(e.target.value)}
                   style={{ border: "1px solid var(--border)", background: "var(--input)", color: "var(--ink)", borderRadius: 7, padding: "4px 9px", fontSize: 12.5, fontFamily: "inherit" }}
                 />
               </div>
               <div style={{ textAlign: "right" }}>
-                <span onClick={side.closeMeta} style={{ cursor: "pointer", fontSize: 12, color: "var(--muted)" }}>
+                <span
+                  onClick={side.closeMeta}
+                  style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "#fff", background: accent, borderRadius: 7, padding: "6px 16px", display: "inline-block" }}
+                >
                   Done
                 </span>
               </div>

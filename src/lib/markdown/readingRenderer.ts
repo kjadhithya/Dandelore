@@ -122,10 +122,32 @@ export function md2html(
     /^\s*(---|\*\*\*)\s*$/.test(l) ||
     /^\s*$/.test(l);
 
+  // The live editor renders every source line as its own div — a blank
+  // line is a real (empty) line with its own height, so it's the *only*
+  // thing that visibly separates two blocks; adjacent non-blank lines sit
+  // almost flush. Reading mode used to give every block a fixed CSS margin
+  // regardless of the source, which both squeezed real paragraph breaks and
+  // added space that wasn't in the source at all. Instead, every block
+  // below has ~0 margin of its own, and blank source lines are rendered as
+  // explicit spacers (one per blank line, so two blank lines really do take
+  // twice the space) — spacing now comes from the source the same way it
+  // does in edit mode, not from a fixed per-block-type constant.
+  let blankRun = 0;
+  const flushBlanks = () => {
+    for (let n = 0; n < blankRun; n++) out += '<div style="height:1.85em"></div>';
+    blankRun = 0;
+  };
+
   while (i < lines.length) {
     const ln = lines[i];
+    if (/^\s*$/.test(ln)) {
+      blankRun++;
+      i++;
+      continue;
+    }
     if (/^```/.test(ln)) {
       closeLists();
+      flushBlanks();
       const buf: string[] = [];
       i++;
       while (i < lines.length && !/^```/.test(lines[i])) {
@@ -136,13 +158,14 @@ export function md2html(
       out +=
         '<pre style="background:' +
         C.code +
-        ';border:1px solid var(--border);border-radius:8px;padding:12px 14px;overflow:auto;font-family:IBM Plex Mono,monospace;font-size:12.5px;line-height:1.6;color:var(--text);margin:12px 0;">' +
+        ';border:1px solid var(--border);border-radius:8px;padding:12px 14px;overflow:auto;font-family:IBM Plex Mono,monospace;font-size:12.5px;line-height:1.6;color:var(--text);margin:0;">' +
         esc(buf.join("\n")) +
         "</pre>";
       continue;
     }
     if (/\|/.test(ln) && i + 1 < lines.length && /^\s*\|?[\s:-]+\|[\s:|-]*$/.test(lines[i + 1])) {
       closeLists();
+      flushBlanks();
       const row = (l: string) =>
         l
           .replace(/^\||\|$/g, "")
@@ -188,6 +211,7 @@ export function md2html(
     }
     if (/^#{1,6}\s/.test(ln)) {
       closeLists();
+      flushBlanks();
       const lvl = ln.match(/^#+/)![0].length;
       const sz = [0, 26, 21, 18, 16, 15, 14][lvl];
       const mtb = [
@@ -202,7 +226,7 @@ export function md2html(
       out +=
         "<h" +
         lvl +
-        ' style="font-family:Spectral,serif;font-weight:600;font-size:' +
+        ' style="font-family:var(--font-title, Spectral),serif;font-weight:600;font-size:' +
         sz +
         "px;color:var(--ink);margin:" +
         mtb[0] +
@@ -218,29 +242,32 @@ export function md2html(
     }
     if (/^\s*>/.test(ln)) {
       closeLists();
+      flushBlanks();
       out +=
         '<blockquote style="border-left:3px solid ' +
         C.accentText +
-        ';margin:12px 0;padding:2px 14px;color:var(--text);font-style:italic;background:var(--active);border-radius:0 6px 6px 0;">' +
+        ';margin:0;padding:2px 14px;color:var(--text);font-style:italic;background:var(--active);border-radius:0 6px 6px 0;">' +
         inl(ln.replace(/^\s*>\s?/, "")) +
         "</blockquote>";
       i++;
       continue;
     }
     if (/^\s*[-*]\s+\[( |x|X)\]/.test(ln)) {
+      if (blankRun > 0) closeLists();
+      flushBlanks();
       if (listOpen.ol) {
         out += "</ol>";
         listOpen.ol = false;
       }
       if (!listOpen.ul) {
-        out += '<ul style="list-style:none;padding:0;margin:6px 0;">';
+        out += '<ul style="list-style:none;padding:0;margin:0;">';
         listOpen.ul = true;
       }
       taskIdx++;
       const done = /\[(x|X)\]/.test(ln);
       const txt = ln.replace(/^\s*[-*]\s+\[( |x|X)\]\s?/, "");
       out +=
-        '<li style="display:flex;align-items:flex-start;gap:9px;margin:5px 0;line-height:1.6;"><input type="checkbox" data-task="' +
+        '<li style="display:flex;align-items:flex-start;gap:9px;margin:0;line-height:1.6;"><input type="checkbox" data-task="' +
         taskIdx +
         '" ' +
         (done ? "checked" : "") +
@@ -255,12 +282,14 @@ export function md2html(
       continue;
     }
     if (/^\s*[-*]\s+/.test(ln)) {
+      if (blankRun > 0) closeLists();
+      flushBlanks();
       if (listOpen.ol) {
         out += "</ol>";
         listOpen.ol = false;
       }
       if (!listOpen.ul) {
-        out += '<ul style="padding-left:20px;margin:0.875em 0;">';
+        out += '<ul style="padding-left:20px;margin:0;">';
         listOpen.ul = true;
       }
       out +=
@@ -269,12 +298,14 @@ export function md2html(
       continue;
     }
     if (/^\s*\d+\.\s+/.test(ln)) {
+      if (blankRun > 0) closeLists();
+      flushBlanks();
       if (listOpen.ul) {
         out += "</ul>";
         listOpen.ul = false;
       }
       if (!listOpen.ol) {
-        out += '<ol style="padding-left:22px;margin:0.875em 0;">';
+        out += '<ol style="padding-left:22px;margin:0;">';
         listOpen.ol = true;
       }
       out +=
@@ -284,23 +315,20 @@ export function md2html(
     }
     if (/^\s*(---|\*\*\*)\s*$/.test(ln)) {
       closeLists();
-      out += '<hr style="border:none;border-top:1px solid var(--border-soft);margin:16px 0;">';
-      i++;
-      continue;
-    }
-    if (/^\s*$/.test(ln)) {
-      closeLists();
+      flushBlanks();
+      out += '<hr style="border:none;border-top:1px solid var(--border-soft);margin:12px 0;">';
       i++;
       continue;
     }
     closeLists();
+    flushBlanks();
     const para: string[] = [ln];
     i++;
     while (i < lines.length && !isSpecialLine(lines[i])) {
       para.push(lines[i]);
       i++;
     }
-    out += '<p style="margin:0.6em 0;line-height:1.75;color:var(--ink);">' + para.map(inl).join("<br>") + "</p>";
+    out += '<p style="margin:0;line-height:1.75;color:var(--ink);">' + para.map(inl).join("<br>") + "</p>";
   }
   closeLists();
   return out;

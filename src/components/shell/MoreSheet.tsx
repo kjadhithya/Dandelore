@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { useVaultStore } from "@/lib/store/useVaultStore";
-import { CategoriesIcon, JournalIcon, SettingsIcon, CloseIcon } from "@/components/icons/Icons";
+import { CategoriesIcon, JournalIcon, BookmarkIcon, SettingsIcon, CloseIcon } from "@/components/icons/Icons";
 
 export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const s = useVaultStore();
@@ -53,6 +53,7 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
         </div>
         {row(<CategoriesIcon />, "Categories", () => s.goCategories())}
         {row(<JournalIcon />, "Calendar / daily notes", () => s.goJournal())}
+        {row(<BookmarkIcon />, "Bookmarks", () => s.goBookmarks())}
         {row(<SettingsIcon />, "Settings", () => s.openSettings())}
       </div>
     </div>

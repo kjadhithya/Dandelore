@@ -16,9 +16,10 @@ export interface Note {
   content: string;
   daily?: boolean;
   deletedAt?: string | null;
+  bookmarked?: boolean;
 }
 
-export type ViewKind = "note" | "graph" | "journal" | "categories" | "home";
+export type ViewKind = "note" | "graph" | "journal" | "categories" | "bookmarks" | "home";
 
 export interface View {
   kind: ViewKind;
@@ -37,7 +38,7 @@ export interface SplitState {
 }
 
 export type ThemeName = "Light" | "Light Warm" | "Dark" | "Dark Warm";
-export type AppFontName = "Sans" | "Serif" | "System" | "Georgia" | "Mono";
+export type AppFontName = "Sans" | "Serif" | "System" | "Lora" | "Mono";
 
 export interface FolderCtx {
   name: string;
@@ -124,6 +125,7 @@ export interface VaultState {
 
   appFont: AppFontName;
   noteFont: AppFontName;
+  titleFont: AppFontName;
 
   reading: boolean;
 

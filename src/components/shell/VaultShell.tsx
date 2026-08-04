@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useVaultStore } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
-import { THEME_KEY, FONTS } from "@/lib/theme/tokens";
+import { THEME_KEY, THEME_BG, FONTS } from "@/lib/theme/tokens";
 import { hexToRgb } from "@/lib/theme/color";
 import { hydrateFromLocalDb, startLocalPersistence } from "@/lib/db/persistence";
 import { startSyncWorker } from "@/lib/sync/syncWorker";
@@ -73,6 +73,14 @@ export function VaultShell() {
     } catch {}
   }, []);
 
+  // document.body sits outside .vault, so it can't see --bg via CSS
+  // variables — without this it stays whatever static color globals.css
+  // sets regardless of theme, which flashes on overscroll bounce (iOS
+  // Safari) and in the margins if the vault doesn't fully cover the tab.
+  useEffect(() => {
+    document.body.style.background = THEME_BG[theme] || THEME_BG["Light Warm"];
+  }, [theme]);
+
   // Sidebar and backlinks default to open on desktop; on phones they're
   // overlays that should start closed so the note content is visible first.
   useEffect(() => {
@@ -100,6 +108,7 @@ export function VaultShell() {
           "--accent-text": accentText,
           "--accent-faded": accentFadedRgba,
           "--accent-sel": `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.32)`,
+          "--font-title": FONTS[s.titleFont] || FONTS.Serif,
           fontFamily: FONTS[s.appFont] || FONTS.Sans,
         } as React.CSSProperties
       }
