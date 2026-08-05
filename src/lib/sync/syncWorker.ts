@@ -189,6 +189,31 @@ async function pullAndMerge(vaultId: string) {
   }
 }
 
+/** Re-fetches just folders/categories, for the realtime handlers below —
+ * a full pullAndMerge would also re-check every note on a one-row folder
+ * rename. Folders/categories have no per-row modified timestamp, so this
+ * is a straight overwrite from remote, same as pullAndMerge's own copy of
+ * this logic. */
+async function pullFoldersAndCategories(vaultId: string) {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  const [{ data: remoteFolders }, { data: remoteCategories }] = await Promise.all([
+    supabase.from("folders").select("name, parent").eq("vault_id", vaultId),
+    supabase.from("categories").select("name").eq("vault_id", vaultId),
+  ]);
+  if (remoteFolders) {
+    const folderList = remoteFolders.map((f) => f.name);
+    const folderParents: Record<string, string | null> = {};
+    remoteFolders.forEach((f) => {
+      folderParents[f.name] = f.parent;
+    });
+    useVaultStore.setState({ folderList, folderParents });
+  }
+  if (remoteCategories) {
+    useVaultStore.setState({ categories: remoteCategories.map((c) => c.name) });
+  }
+}
+
 async function pushNote(vaultId: string, note: Note) {
   const supabase = getSupabase();
   if (!supabase) return;
@@ -400,6 +425,7 @@ export function startSyncWorker(onReady?: () => void): () => void {
     pushCategories(vaultId, categories);
   }, 600);
   const debouncedPushSettings = debounce(() => pushSettings(vaultId), 600);
+  const debouncedPullFoldersCats = debounce(() => pullFoldersAndCategories(vaultId), 300);
 
   let prevNotes = useVaultStore.getState().notes;
   let prevFolderList = useVaultStore.getState().folderList;
@@ -498,6 +524,15 @@ export function startSyncWorker(onReady?: () => void): () => void {
         if (payload.eventType === "DELETE") return;
         applySettingsRow(payload.new as RemoteSettingsRow);
         prevSettingsSnapshot = JSON.stringify(settingsToRow(vaultId!));
+      })
+      // pushFolders/pushCategories can emit several row-level events for one
+      // rename (a delete plus upserts) — debounced so a single edit doesn't
+      // trigger a burst of redundant refetches.
+      .on("postgres_changes", { event: "*", schema: "public", table: "folders", filter: `vault_id=eq.${vaultId}` }, () => {
+        debouncedPullFoldersCats.run();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "categories", filter: `vault_id=eq.${vaultId}` }, () => {
+        debouncedPullFoldersCats.run();
       })
       .subscribe();
   }
