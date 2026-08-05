@@ -23,9 +23,9 @@ function RibbonButton({
   onClick: () => void;
   children: React.ReactNode;
 }) {
-  const { accent } = useDerivedTheme();
+  const { accent, accentButtonText } = useDerivedTheme();
   const [hover, setHover] = React.useState(false);
-  const style: React.CSSProperties = {
+  const style = {
     width: 41,
     height: 41,
     display: "flex",
@@ -33,9 +33,13 @@ function RibbonButton({
     justifyContent: "center",
     borderRadius: 9,
     cursor: "pointer",
-    color: active ? "#fff" : hover ? "var(--ink)" : "var(--muted)",
+    color: active ? accentButtonText : hover ? "var(--ink)" : "var(--muted)",
     background: active ? accent : hover ? "var(--active)" : "transparent",
-  };
+    // Icons that "punch through" to the background (e.g. GraphIcon's node
+    // dots) need to match whatever's actually behind them, which is the
+    // accent color once this button is active, not the page background.
+    "--icon-punch-bg": active ? accent : undefined,
+  } as React.CSSProperties;
   return (
     <div
       title={title}

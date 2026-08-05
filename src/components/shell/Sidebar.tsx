@@ -141,7 +141,24 @@ export function Sidebar() {
     return (
       <div
         draggable
-        onDragStart={() => s.setDraggingId(note.id)}
+        onDragStart={(e) => {
+          // Some browsers (Firefox in particular) won't initiate a native
+          // drag at all without dataTransfer.setData being called, and
+          // without effectAllowed the drop target shows a "not allowed"
+          // cursor throughout the drag even though the drop would work.
+          e.dataTransfer.setData("text/plain", note.id);
+          e.dataTransfer.effectAllowed = "move";
+          s.setDraggingId(note.id);
+        }}
+        onDragEnd={() => {
+          // A drop on a valid target already clears this via
+          // moveNoteTo/reparentFolder; this covers a cancelled drag
+          // (dropped somewhere with no drop handler, or Escape) so the
+          // next drag doesn't start from stale state.
+          s.setDraggingId(null);
+          s.setDragOverFolder(null);
+          s.setRootDragOver(false);
+        }}
         onClick={(e) => handleRowClick(e, note.id)}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -209,9 +226,19 @@ export function Sidebar() {
     return (
       <div
         draggable
-        onDragStart={() => s.setDraggingFolder(name)}
+        onDragStart={(e) => {
+          e.dataTransfer.setData("text/plain", name);
+          e.dataTransfer.effectAllowed = "move";
+          s.setDraggingFolder(name);
+        }}
+        onDragEnd={() => {
+          s.setDraggingId(null);
+          s.setDragOverFolder(null);
+          s.setRootDragOver(false);
+        }}
         onDragOver={(e) => {
           e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
           s.setDragOverFolder(name);
         }}
         onDragLeave={() => {
@@ -480,6 +507,7 @@ export function Sidebar() {
             <div
               onDragOver={(e) => {
                 e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
                 s.setRootDragOver(true);
               }}
               onDragLeave={() => s.setRootDragOver(false)}

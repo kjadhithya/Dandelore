@@ -8,9 +8,9 @@ export function GraphIcon({ size = 19 }: IconProps) {
       <line x1="7" y1="17" x2="12" y2="8.5" />
       <line x1="12" y1="8.5" x2="17" y2="16" />
       <line x1="7" y1="17" x2="17" y2="16" />
-      <circle cx="7" cy="17" r="2.4" fill="var(--bg)" />
-      <circle cx="12" cy="8" r="2.4" fill="var(--bg)" />
-      <circle cx="17" cy="16" r="2.4" fill="var(--bg)" />
+      <circle cx="7" cy="17" r="2.4" fill="var(--icon-punch-bg, var(--bg))" />
+      <circle cx="12" cy="8" r="2.4" fill="var(--icon-punch-bg, var(--bg))" />
+      <circle cx="17" cy="16" r="2.4" fill="var(--icon-punch-bg, var(--bg))" />
     </svg>
   );
 }
