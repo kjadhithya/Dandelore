@@ -85,6 +85,11 @@ export class EditorEngine {
       this.rebuildAll();
       this.commit();
     });
+    // A contentEditable region isn't a drop target by default — without
+    // preventDefault on dragover, the browser rejects the drop entirely
+    // (often navigating to the file instead of handing it to us).
+    ed.addEventListener("dragover", (e) => e.preventDefault());
+    ed.addEventListener("drop", (e) => this.onDrop(e));
   }
 
   renderFull(content: string) {
@@ -225,6 +230,13 @@ export class EditorEngine {
       e.preventDefault();
       this.deps.onPasteFiles(files);
     }
+  }
+
+  onDrop(e: DragEvent) {
+    const files = e.dataTransfer?.files;
+    if (!files || !files.length) return;
+    e.preventDefault();
+    this.deps.onPasteFiles(Array.from(files));
   }
 
   onInput(e: InputEvent) {

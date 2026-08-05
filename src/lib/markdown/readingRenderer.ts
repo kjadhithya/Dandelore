@@ -247,7 +247,7 @@ export function md2html(
       out +=
         '<blockquote style="border-left:3px solid ' +
         C.accentText +
-        ';margin:0;padding:10px 16px;color:var(--text);font-style:italic;background:var(--active);border-radius:0 6px 6px 0;">' +
+        ';margin:0;padding:10px 16px;color:var(--text);font-style:italic;background:color-mix(in srgb, var(--ink) 6%, transparent);border-radius:0 6px 6px 0;">' +
         inl(ln.replace(/^\s*>\s?/, "")) +
         "</blockquote>";
       i++;

@@ -228,7 +228,7 @@ select:focus {
   content: "•";
   position: absolute;
   left: 0.35em;
-  color: var(--accent-text, var(--accent, #b0623b));
+  color: var(--muted);
 }
 .liveedit .ln.task {
   padding-left: 1.55em;
@@ -257,7 +257,7 @@ select:focus {
   padding-left: 12px;
   color: var(--text);
   font-style: italic;
-  background: var(--active);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
   border-radius: 0 6px 6px 0;
 }
 .liveedit .ln.fence {
