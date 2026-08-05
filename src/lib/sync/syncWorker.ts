@@ -170,10 +170,17 @@ async function pullAndMerge(vaultId: string) {
     const removeSet = new Set(deletedElsewhere);
     useVaultStore.setState((s) => ({ notes: s.notes.filter((n) => !removeSet.has(n.id)) }));
   }
+  // Only mark a note as "confirmed synced" once its push actually
+  // succeeds — marking it unconditionally meant a note whose push kept
+  // failing (an RLS rejection, a transient network error, anything)
+  // would get treated as "synced, then deleted elsewhere" on the very
+  // next pull cycle and be wiped from local state, even though it was
+  // never actually deleted anywhere and never made it to the server.
+  const actuallySynced: string[] = [];
   for (const note of neverSynced) {
-    await pushNote(vaultId, note);
+    if (await pushNote(vaultId, note)) actuallySynced.push(note.id);
   }
-  await addSyncedIds(neverSynced.map((n) => n.id));
+  await addSyncedIds(actuallySynced);
 
   if (remoteFolders) {
     const folderList = remoteFolders.map((f) => f.name);
@@ -214,9 +221,9 @@ async function pullFoldersAndCategories(vaultId: string) {
   }
 }
 
-async function pushNote(vaultId: string, note: Note) {
+async function pushNote(vaultId: string, note: Note): Promise<boolean> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return false;
   const { error } = await supabase.from("notes").upsert(noteToRow(note, vaultId));
   if (error) {
     await localDb.mutationQueue.add({
@@ -227,6 +234,7 @@ async function pushNote(vaultId: string, note: Note) {
       createdAt: Date.now(),
     });
   }
+  return !error;
 }
 
 async function pushNoteDelete(vaultId: string, noteId: string) {
