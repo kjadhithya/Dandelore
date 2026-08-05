@@ -379,13 +379,29 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ width: 74, color: "var(--faint)", fontSize: 12, flex: "0 0 auto" }}>Created</span>
-                <input
-                  type="date"
-                  className="date-themed"
-                  value={side.dateVal}
-                  onChange={(e) => side.onDate(e.target.value)}
-                  style={{ border: "1px solid var(--border)", background: "var(--input)", color: "var(--ink)", borderRadius: 7, padding: "4px 9px", fontSize: 12.5, fontFamily: "inherit" }}
-                />
+                <label
+                  style={{
+                    position: "relative",
+                    display: "inline-block",
+                    border: "1px solid var(--border)",
+                    background: "var(--input)",
+                    color: side.dateVal ? "var(--ink)" : "var(--faint)",
+                    borderRadius: 7,
+                    padding: "4px 9px",
+                    fontSize: 12.5,
+                    fontFamily: "var(--font-ibm-plex-mono)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {side.dateVal ? formatDate(side.dateVal) : "Set date"}
+                  <input
+                    type="date"
+                    className="date-themed"
+                    value={side.dateVal}
+                    onChange={(e) => side.onDate(e.target.value)}
+                    style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer" }}
+                  />
+                </label>
               </div>
               <div style={{ textAlign: "right" }}>
                 <span
