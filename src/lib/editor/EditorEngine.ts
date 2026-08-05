@@ -17,7 +17,10 @@ export interface EditorEngineDeps {
   getTagSuggestions: (query: string) => string[];
   onContentChange: (content: string) => void;
   onPopupChange: (popup: PopupState) => void;
-  onPickLink: (title: string) => void;
+  // Inserting a [[link]] from the autocomplete popup while typing — creates
+  // the target note if missing but stays put, unlike clicking a link.
+  onLinkInsert: (title: string) => void;
+  onLinkClick: (title: string) => void;
   onOpenSearch: (q: string) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -547,7 +550,7 @@ export class EditorEngine {
     this.lastPick = { line, col: caret };
     this.ed?.focus();
     this.commit();
-    this.deps.onPickLink(title);
+    this.deps.onLinkInsert(title);
   }
 
   onClick(e: MouseEvent) {
@@ -561,7 +564,7 @@ export class EditorEngine {
     const wl = t.closest && (t.closest("[data-wikilink]") as HTMLElement | null);
     if (wl) {
       e.preventDefault();
-      this.deps.onPickLink(wl.getAttribute("data-wikilink") || "");
+      this.deps.onLinkClick(wl.getAttribute("data-wikilink") || "");
       return;
     }
     const ex = t.closest && (t.closest("[data-ext]") as HTMLElement | null);

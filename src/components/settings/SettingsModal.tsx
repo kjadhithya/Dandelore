@@ -261,36 +261,101 @@ export function SettingsModal() {
     );
   }
 
+  const desktopFontRow = (label: string, value: string, onSelect: (v: string) => void) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <span style={{ fontSize: 12.5, color: "var(--muted)" }}>{label}</span>
+      <div style={{ position: "relative" }}>
+        <select value={value} onChange={(e) => onSelect(e.target.value)} style={{ ...fontSelectStyle(false), width: "100%" }}>
+          {FONT_OPTS.map((f) => (
+            <option key={f} value={f}>
+              {f}
+            </option>
+          ))}
+        </select>
+        <div style={{ position: "absolute", top: "50%", right: 9, transform: "translateY(-50%)", pointerEvents: "none", color: "var(--muted)" }}>
+          <ChevronDownSmall size={13} />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div
       onClick={() => s.closeSettings()}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55 }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 24 }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width: 460, maxWidth: "92vw", background: "var(--bg)", borderRadius: 14, boxShadow: "0 30px 70px -18px rgba(0,0,0,.5)", overflow: "hidden" }}
+        style={{ width: 640, maxWidth: "100%", maxHeight: "84vh", display: "flex", flexDirection: "column", background: "var(--bg)", borderRadius: 16, boxShadow: "0 30px 70px -18px rgba(0,0,0,.5)", overflow: "hidden" }}
       >
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-soft)", display: "flex", alignItems: "center" }}>
-          <span style={{ flex: 1, fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 17, color: "var(--ink)" }}>Settings</span>
-          <div onClick={() => s.closeSettings()} title="Close" style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 7, cursor: "pointer", color: "var(--muted)" }}>
+        <div style={{ flex: "0 0 auto", padding: "20px 28px", borderBottom: "1px solid var(--border-soft)", display: "flex", alignItems: "center" }}>
+          <span style={{ flex: 1, fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 20, color: "var(--ink)" }}>Settings</span>
+          <div onClick={() => s.closeSettings()} title="Close" style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, cursor: "pointer", color: "var(--muted)" }}>
             <CloseIcon />
           </div>
         </div>
-        <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <span style={{ fontSize: 13.5, color: "var(--ink)" }}>Appearance</span>
+        <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "26px 28px 32px", display: "flex", flexDirection: "column", gap: 28 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <SectionLabel>Appearance</SectionLabel>
             {themeCards}
           </div>
-          {fontRow("App font", s.appFont, (v) => s.onAppFont(v as never))}
-          {fontRow("Note font", s.noteFont, (v) => s.onNoteFont(v as never))}
-          {fontRow("Title font", s.titleFont, (v) => s.onTitleFont(v as never))}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ flex: 1, fontSize: 13.5, color: "var(--ink)" }}>Primary color</span>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <SectionLabel>Typography</SectionLabel>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
+              {desktopFontRow("App font", s.appFont, (v) => s.onAppFont(v as never))}
+              {desktopFontRow("Note font", s.noteFont, (v) => s.onNoteFont(v as never))}
+              {desktopFontRow("Title font", s.titleFont, (v) => s.onTitleFont(v as never))}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <SectionLabel>Primary color</SectionLabel>
             {accentSwatches}
           </div>
-          {accountSection}
-          {vaultDataSection}
-          {cheatsheetRow}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, paddingTop: 24, borderTop: "1px solid var(--border-soft)" }}>
+              {email && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <SectionLabel>Account</SectionLabel>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--panel)", border: "1px solid var(--border-soft)", borderRadius: 10, padding: "12px 14px" }}>
+                    <span style={{ flex: 1, fontSize: 13, color: "var(--muted)", wordBreak: "break-all" }}>{email}</span>
+                    <div
+                      onClick={signingOut ? undefined : handleSignOut}
+                      style={{ cursor: signingOut ? "default" : "pointer", opacity: signingOut ? 0.6 : 1, fontSize: 13, fontWeight: 500, color: "#c15a3d", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 12px", flex: "0 0 auto" }}
+                    >
+                      {signingOut ? "Signing out…" : "Sign out"}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <SectionLabel>Vault data</SectionLabel>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div
+                    onClick={() => document.getElementById("importInput")?.click()}
+                    style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, fontWeight: 500, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 9, padding: 12 }}
+                  >
+                    Import Markdown…
+                  </div>
+                  <div
+                    onClick={() => s.exportJson()}
+                    style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, fontWeight: 500, color: "#fff", background: accent, borderRadius: 9, padding: 12 }}
+                  >
+                    Export vault (JSON)
+                  </div>
+                </div>
+              </div>
+
+              <div
+                onClick={() => s.openCheat()}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 14px", background: "var(--panel)", border: "1px solid var(--border-soft)", borderRadius: 10, cursor: "pointer" }}
+              >
+                <span style={{ flex: 1, fontSize: 13, color: "var(--ink)" }}>Markdown cheatsheet</span>
+                <ChevronDownSmall size={16} />
+              </div>
+          </div>
         </div>
       </div>
       <CheatsheetModal />

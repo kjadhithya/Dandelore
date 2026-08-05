@@ -128,6 +128,7 @@ export interface VaultStore extends VaultState {
 
   // notes CRUD
   openOrCreate: (title: string, folder?: string) => void;
+  ensureNote: (title: string, folder?: string) => string;
   newNote: () => void;
   deleteNote: (id: string) => void;
   duplicateNote: (id: string) => void;
@@ -639,6 +640,15 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       get().navigate(ex.id);
       return;
     }
+    const id = get().ensureNote(title, folder);
+    get().navigate(id!);
+  },
+  // Creates the note a [[wikilink]] points at if it doesn't exist yet,
+  // without navigating away — used when a link is *inserted* while typing
+  // in another note, as opposed to clicked (which should navigate).
+  ensureNote: (title, folder) => {
+    const ex = get().byTitle(title);
+    if (ex) return ex.id;
     const id = newId();
     const note: Note = {
       id,
@@ -652,7 +662,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       content: "# " + title + "\n\n",
     };
     set((s) => ({ notes: [...s.notes, note] }));
-    get().navigate(id);
+    return id;
   },
   newNote: () => {
     const id = newId();

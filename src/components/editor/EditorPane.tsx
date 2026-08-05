@@ -180,7 +180,7 @@ function TagsField({
         {tags.map((tc) => (
           <span
             key={tc.name}
-            style={{ display: "flex", alignItems: "center", gap: 5, color: accentText, fontFamily: "var(--font-ibm-plex-mono)", background: "var(--code)", borderRadius: 6, padding: "2px 5px 2px 8px", fontSize: 12.5 }}
+            style={{ display: "flex", alignItems: "center", gap: 5, color: accentText, fontFamily: "var(--font-ibm-plex-mono)", border: "1px solid var(--border)", borderRadius: 6, padding: "2px 5px 2px 8px", fontSize: 12.5 }}
           >
             #{tc.name}
             <span onClick={tc.onRemove} style={{ cursor: "pointer", color: "var(--faint)" }}>
@@ -427,7 +427,7 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
                 <span
                   key={tc.name}
                   onClick={tc.onSearch}
-                  style={{ cursor: "pointer", color: accentText, fontFamily: "var(--font-ibm-plex-mono)", background: "var(--code)", borderRadius: 6, padding: "2px 8px" }}
+                  style={{ cursor: "pointer", color: accentText, fontFamily: "var(--font-ibm-plex-mono)" }}
                 >
                   #{tc.name}
                 </span>

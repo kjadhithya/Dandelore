@@ -19,6 +19,7 @@ export function LiveEditor({ note }: { note: Note }) {
   const undo = useVaultStore((s) => s.undo);
   const redo = useVaultStore((s) => s.redo);
   const openOrCreate = useVaultStore((s) => s.openOrCreate);
+  const ensureNote = useVaultStore((s) => s.ensureNote);
   const openSearch = useVaultStore((s) => s.openSearch);
 
   const noteIdRef = useRef(note.id);
@@ -59,7 +60,8 @@ export function LiveEditor({ note }: { note: Note }) {
         setNoteContent(noteIdRef.current, content);
       },
       onPopupChange: setPopup,
-      onPickLink: (title) => openOrCreate(title),
+      onLinkInsert: (title) => ensureNote(title),
+      onLinkClick: (title) => openOrCreate(title),
       onOpenSearch: openSearch,
       onUndo: undo,
       onRedo: redo,
