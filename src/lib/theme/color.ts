@@ -60,6 +60,13 @@ export function accessibleAccent(hex: string, bgHex: string, minRatio = 4.5): st
   return toward;
 }
 
+/** Picks whichever of pure black/white reads better on a given background —
+ * for text sitting on a solid accent-colored button, where the button
+ * could be anything from a pale pastel to a near-black pick. */
+export function bestTextOn(bgHex: string): string {
+  return contrastRatio("#ffffff", bgHex) >= contrastRatio("#000000", bgHex) ? "#ffffff" : "#000000";
+}
+
 /** The darkest "deeper shade of the same accent" (mixed toward black) that
  * still clears minRatio, backing off from maxT as needed instead of
  * ignoring legibility — darkening on a dark background reduces contrast,

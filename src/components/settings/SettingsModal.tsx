@@ -20,7 +20,7 @@ function Divider() {
 
 export function SettingsModal() {
   const s = useVaultStore();
-  const { accent, theme } = useDerivedTheme();
+  const { accent, accentButtonText, theme } = useDerivedTheme();
   const isMobile = useIsMobile();
   const [email, setEmail] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -205,7 +205,7 @@ export function SettingsModal() {
           </div>
           <div
             onClick={() => s.exportJson()}
-            style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, color: "#fff", background: accent, borderRadius: 9, padding: isMobile ? 12 : 10 }}
+            style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, color: accentButtonText, background: accent, borderRadius: 9, padding: isMobile ? 12 : 10 }}
           >
             Export vault (JSON)
           </div>
@@ -341,7 +341,7 @@ export function SettingsModal() {
                   </div>
                   <div
                     onClick={() => s.exportJson()}
-                    style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, fontWeight: 500, color: "#fff", background: accent, borderRadius: 9, padding: 12 }}
+                    style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, fontWeight: 500, color: accentButtonText, background: accent, borderRadius: 9, padding: 12 }}
                   >
                     Export vault (JSON)
                   </div>

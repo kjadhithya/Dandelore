@@ -235,7 +235,7 @@ function TagsField({
 }
 
 export function EditorPane({ note, side }: { note: Note; side: Side }) {
-  const { accentText, accent } = useDerivedTheme();
+  const { accentText, accent, accentButtonText } = useDerivedTheme();
   const openConfirm = useVaultStore((s) => s.openConfirm);
   const allTagsFn = useVaultStore((s) => s.allTags);
   const toggleBookmark = useVaultStore((s) => s.toggleBookmark);
@@ -406,7 +406,7 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
               <div style={{ textAlign: "right" }}>
                 <span
                   onClick={side.closeMeta}
-                  style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "#fff", background: accent, borderRadius: 7, padding: "6px 16px", display: "inline-block" }}
+                  style={{ cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: accentButtonText, background: accent, borderRadius: 7, padding: "6px 16px", display: "inline-block" }}
                 >
                   Done
                 </span>

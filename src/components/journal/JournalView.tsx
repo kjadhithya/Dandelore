@@ -13,7 +13,7 @@ const MONTHS = [
 
 export function JournalView() {
   const s = useVaultStore();
-  const { accent } = useDerivedTheme();
+  const { accent, accentButtonText } = useDerivedTheme();
   const TODAY = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const y = s.calYear;
@@ -80,7 +80,7 @@ export function JournalView() {
                 cursor: "pointer",
                 fontSize: 13,
                 ...(sel
-                  ? { background: accent, color: "#fff", fontWeight: 600 }
+                  ? { background: accent, color: accentButtonText, fontWeight: 600 }
                   : today
                     ? { background: "var(--active)", color: "var(--ink)", fontWeight: 600, border: "1px solid var(--border)" }
                     : has
@@ -90,14 +90,14 @@ export function JournalView() {
               return (
                 <div key={i} onClick={() => s.setCalSelected(cell.iso!)} style={style}>
                   <span>{cell.label}</span>
-                  {has && <span style={{ width: 5, height: 5, borderRadius: "50%", background: sel ? "#fff" : accent, marginTop: 3 }} />}
+                  {has && <span style={{ width: 5, height: 5, borderRadius: "50%", background: sel ? accentButtonText : accent, marginTop: 3 }} />}
                 </div>
               );
             })}
           </div>
           <div style={{ marginTop: 22, display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 15, color: "var(--ink)", flex: 1 }}>{formatDate(s.calSelected)}</div>
-            <span onClick={() => s.newDaily()} style={{ cursor: "pointer", fontSize: 12, color: "#fff", background: accent, padding: "6px 12px", borderRadius: 7 }}>
+            <span onClick={() => s.newDaily()} style={{ cursor: "pointer", fontSize: 12, color: accentButtonText, background: accent, padding: "6px 12px", borderRadius: 7 }}>
               + Daily note
             </span>
           </div>

@@ -22,7 +22,7 @@ import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
 export function VaultShell() {
   const s = useVaultStore();
-  const { theme, accent, accentText, accentFadedRgba, accentSelRgba } = useDerivedTheme();
+  const { theme, accent, accentText, accentFadedRgba, accentSelRgba, accentButtonText } = useDerivedTheme();
   const attachInputRef = useRef<HTMLInputElement | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const isMobile = useIsMobile();
@@ -182,7 +182,7 @@ export function VaultShell() {
             height: 52,
             borderRadius: "50%",
             background: accent,
-            color: "#fff",
+            color: accentButtonText,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

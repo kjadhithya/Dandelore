@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useVaultStore } from "@/lib/store/useVaultStore";
 import { THEME_BG } from "./tokens";
-import { accessibleAccent, deepenAccent, hexToRgb } from "./color";
+import { accessibleAccent, bestTextOn, deepenAccent, hexToRgb } from "./color";
 import type { ThemeName } from "@/types/vault";
 
 export interface DerivedColors {
@@ -10,6 +10,7 @@ export interface DerivedColors {
   accentText: string;
   accentFadedRgba: string;
   accentSelRgba: string;
+  accentButtonText: string;
   isDark: boolean;
 }
 
@@ -31,6 +32,10 @@ export function useDerivedTheme(): DerivedColors {
     const accentFadedRgba = deepenAccent(accent, bg, 0.22, 2.6);
     const rgb = hexToRgb(accent);
     const accentSelRgba = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.32)`;
-    return { theme, accent, accentText, accentFadedRgba, accentSelRgba, isDark };
+    // Text drawn ON TOP of a solid accent button — the accent itself can be
+    // anything from a pale pastel to near-black, so a fixed white doesn't
+    // always have enough contrast; pick whichever of black/white reads best.
+    const accentButtonText = bestTextOn(accent);
+    return { theme, accent, accentText, accentFadedRgba, accentSelRgba, accentButtonText, isDark };
   }, [theme, accent]);
 }

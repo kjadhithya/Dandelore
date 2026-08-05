@@ -87,7 +87,7 @@ function HomeView({ split }: { split?: boolean }) {
 
 function EmptyView() {
   const s = useVaultStore();
-  const { accent } = useDerivedTheme();
+  const { accent, accentButtonText } = useDerivedTheme();
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
       <div style={{ width: 96, height: 96, borderRadius: 22, background: "var(--panel)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -95,7 +95,7 @@ function EmptyView() {
       </div>
       <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontSize: 18, color: "var(--muted)" }}>No note open</div>
       <div style={{ display: "flex", gap: 8 }}>
-        <div onClick={() => s.newNote()} style={{ cursor: "pointer", fontSize: 13, color: "#fff", background: accent, padding: "9px 18px", borderRadius: 8, fontWeight: 500 }}>
+        <div onClick={() => s.newNote()} style={{ cursor: "pointer", fontSize: 13, color: accentButtonText, background: accent, padding: "9px 18px", borderRadius: 8, fontWeight: 500 }}>
           New note
         </div>
         <div onClick={() => s.toggleQuick()} style={{ cursor: "pointer", fontSize: 13, color: "var(--text)", border: "1px solid var(--border)", padding: "9px 18px", borderRadius: 8 }}>
