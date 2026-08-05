@@ -76,36 +76,56 @@ export function SettingsModal() {
     </div>
   );
 
+  // Native <select> chrome draws its own dropdown arrow flush to the box
+  // edge in some browsers regardless of padding-right on the element, so
+  // padding alone can't create breathing room for it. Hiding the native
+  // arrow (appearance:none) and drawing our own ChevronDownSmall instead
+  // gives full control over its position.
+  const fontSelectStyle = (mobile: boolean): React.CSSProperties => ({
+    appearance: "none",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+    border: "1px solid var(--border)",
+    background: "var(--input)",
+    color: "var(--ink)",
+    borderRadius: mobile ? 9 : 8,
+    padding: mobile ? "11px 34px 11px 12px" : "6px 30px 6px 10px",
+    fontSize: mobile ? 14 : 13,
+    fontFamily: "inherit",
+    width: mobile ? "100%" : undefined,
+  });
   const fontRow = (label: string, value: string, onSelect: (v: string) => void) =>
     isMobile ? (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <span style={{ fontSize: 13.5, color: "var(--ink)" }}>{label}</span>
-        <select
-          value={value}
-          onChange={(e) => onSelect(e.target.value)}
-          style={{ border: "1px solid var(--border)", background: "var(--input)", color: "var(--ink)", borderRadius: 9, padding: "11px 30px 11px 12px", fontSize: 14, fontFamily: "inherit", width: "100%" }}
-        >
-          {FONT_OPTS.map((f) => (
-            <option key={f} value={f}>
-              {f}
-            </option>
-          ))}
-        </select>
+        <div style={{ position: "relative" }}>
+          <select value={value} onChange={(e) => onSelect(e.target.value)} style={fontSelectStyle(true)}>
+            {FONT_OPTS.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+          <div style={{ position: "absolute", top: "50%", right: 12, transform: "translateY(-50%)", pointerEvents: "none", color: "var(--muted)" }}>
+            <ChevronDownSmall size={14} />
+          </div>
+        </div>
       </div>
     ) : (
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{ flex: 1, fontSize: 13.5, color: "var(--ink)" }}>{label}</span>
-        <select
-          value={value}
-          onChange={(e) => onSelect(e.target.value)}
-          style={{ border: "1px solid var(--border)", background: "var(--input)", color: "var(--ink)", borderRadius: 8, padding: "6px 26px 6px 10px", fontSize: 13, fontFamily: "inherit" }}
-        >
-          {FONT_OPTS.map((f) => (
-            <option key={f} value={f}>
-              {f}
-            </option>
-          ))}
-        </select>
+        <div style={{ position: "relative" }}>
+          <select value={value} onChange={(e) => onSelect(e.target.value)} style={fontSelectStyle(false)}>
+            {FONT_OPTS.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+          <div style={{ position: "absolute", top: "50%", right: 9, transform: "translateY(-50%)", pointerEvents: "none", color: "var(--muted)" }}>
+            <ChevronDownSmall size={13} />
+          </div>
+        </div>
       </div>
     );
 

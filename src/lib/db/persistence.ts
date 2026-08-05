@@ -1,5 +1,6 @@
 import { localDb, isLocalDbEmpty } from "./localDb";
 import { useVaultStore, mkTab } from "@/lib/store/useVaultStore";
+import { normalizeLineEndings } from "@/lib/text";
 import type { TabState } from "@/types/vault";
 
 let persistenceStarted = false;
@@ -44,8 +45,21 @@ export async function hydrateFromLocalDb(): Promise<void> {
   const settings = Object.fromEntries(settingsRows.map((r) => [r.key, r.value])) as Record<string, unknown>;
   const { tabs, active } = sanitizeTabs(settings.tabs, settings.active, new Set(notes.map((n) => n.id)));
 
+  // Imported .md files (and some paste sources) can carry CRLF line
+  // endings, which silently break the live editor's per-line regexes —
+  // clean any pre-existing notes once here, on top of normalizing new
+  // writes at the source, so already-imported notes self-heal.
+  const dirty: typeof notes = [];
+  const cleanNotes = notes.map((n) => {
+    if (!n.content.includes("\r")) return n;
+    const cleaned = { ...n, content: normalizeLineEndings(n.content) };
+    dirty.push(cleaned);
+    return cleaned;
+  });
+  if (dirty.length) localDb.notes.bulkPut(dirty).catch(() => {});
+
   useVaultStore.setState({
-    notes,
+    notes: cleanNotes,
     folderList: folders.map((f) => f.name),
     folderParents,
     categories: categories.map((c) => c.name),

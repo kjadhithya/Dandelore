@@ -10,6 +10,7 @@ import type {
   SortKey,
 } from "@/types/vault";
 import { TODAY } from "@/lib/seed";
+import { normalizeLineEndings } from "@/lib/text";
 
 function newId(): string {
   return "n" + Date.now() + Math.random().toString(36).slice(2, 6);
@@ -706,6 +707,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     set((s) => ({ notes: s.notes.map((n) => (n.id === id ? { ...n, title: v, modified: iso } : n)) }));
   },
   setNoteContent: (id, content) => {
+    content = normalizeLineEndings(content);
     const old = get().notes.find((n) => n.id === id);
     if (old && old.content !== content) get().pushUndo(id, old.content);
     set((s) => ({ notes: s.notes.map((n) => (n.id === id ? { ...n, content, modified: new Date().toISOString() } : n)) }));
@@ -1116,7 +1118,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       category: "",
       tags: [],
       attachments: {},
-      content: f.text,
+      content: normalizeLineEndings(f.text),
     }));
     if (!created.length) return;
     set((s) => ({ notes: [...s.notes, ...created], settingsOpen: false }));

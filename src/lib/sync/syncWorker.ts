@@ -3,6 +3,7 @@ import { getCurrentVaultId } from "@/lib/supabase/session";
 import { useVaultStore } from "@/lib/store/useVaultStore";
 import { localDb } from "@/lib/db/localDb";
 import { listNoteAttachments, downloadAttachment } from "@/lib/supabase/attachments";
+import { normalizeLineEndings } from "@/lib/text";
 import type { Note } from "@/types/vault";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -41,7 +42,7 @@ function rowToNote(r: RemoteNoteRow): Note {
   return {
     id: r.id,
     title: r.title,
-    content: r.content,
+    content: normalizeLineEndings(r.content),
     folder: r.folder,
     category: r.category,
     tags: r.tags || [],
