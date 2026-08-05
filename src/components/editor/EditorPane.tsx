@@ -6,6 +6,7 @@ import { LiveEditor } from "./LiveEditor";
 import { ReadingView } from "./ReadingView";
 import { CategoryDropdown } from "./CategoryDropdown";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
+import { formatDate } from "@/lib/date";
 import {
   EyeIcon,
   PlusIcon,
@@ -415,7 +416,7 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
                   #{tc.name}
                 </span>
               ))}
-              {hasDate && <span style={{ color: "var(--faint)", fontFamily: "var(--font-ibm-plex-mono)" }}>◷ {note.date}</span>}
+              {hasDate && <span style={{ color: "var(--faint)", fontFamily: "var(--font-ibm-plex-mono)" }}>◷ {formatDate(note.date)}</span>}
               <span onClick={side.openMeta} style={{ cursor: "pointer", color: "var(--faint)", fontSize: 12 }}>
                 edit
               </span>

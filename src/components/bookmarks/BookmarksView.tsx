@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useVaultStore, sortNotes } from "@/lib/store/useVaultStore";
 import { BookmarkIcon, SortIcon } from "@/components/icons/Icons";
 import { SORT_OPTS } from "@/lib/theme/tokens";
+import { formatDate } from "@/lib/date";
 
 export function BookmarksView() {
   const s = useVaultStore();
@@ -68,7 +69,7 @@ export function BookmarksView() {
               >
                 <span style={{ flex: 1, fontSize: 14, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title || "Untitled"}</span>
                 <span style={{ fontSize: 12, color: "var(--muted)", flex: "0 0 auto", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.category || n.folder || ""}</span>
-                <span style={{ fontSize: 11.5, color: "var(--faint)", fontFamily: "var(--font-ibm-plex-mono)", flex: "0 0 auto" }}>{n.date || "—"}</span>
+                <span style={{ fontSize: 11.5, color: "var(--faint)", fontFamily: "var(--font-ibm-plex-mono)", flex: "0 0 auto" }}>{formatDate(n.date) || "—"}</span>
               </div>
             ))}
           </div>

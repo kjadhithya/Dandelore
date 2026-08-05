@@ -3,6 +3,7 @@ import React, { useMemo } from "react";
 import { useVaultStore } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
 import { BackIcon, ForwardIcon } from "@/components/icons/Icons";
+import { formatDate } from "@/lib/date";
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTHS = [
@@ -95,7 +96,7 @@ export function JournalView() {
             })}
           </div>
           <div style={{ marginTop: 22, display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 15, color: "var(--ink)", flex: 1 }}>{s.calSelected}</div>
+            <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 15, color: "var(--ink)", flex: 1 }}>{formatDate(s.calSelected)}</div>
             <span onClick={() => s.newDaily()} style={{ cursor: "pointer", fontSize: 12, color: "#fff", background: accent, padding: "6px 12px", borderRadius: 7 }}>
               + Daily note
             </span>

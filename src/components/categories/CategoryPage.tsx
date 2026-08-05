@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useVaultStore, sortNotes } from "@/lib/store/useVaultStore";
 import { SortIcon, MoreIcon } from "@/components/icons/Icons";
 import { SORT_OPTS } from "@/lib/theme/tokens";
+import { formatDate } from "@/lib/date";
 import { CategoryActionsMenu } from "./CategoryActionsMenu";
 
 export function CategoryPage({ name }: { name: string }) {
@@ -103,7 +104,7 @@ export function CategoryPage({ name }: { name: string }) {
                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 10px", borderBottom: "1px solid var(--border-soft)", cursor: "pointer" }}
               >
                 <span style={{ flex: 1, fontSize: 14, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title || "Untitled"}</span>
-                <span style={{ fontSize: 11.5, color: "var(--faint)", fontFamily: "var(--font-ibm-plex-mono)", flex: "0 0 auto" }}>{n.date || "—"}</span>
+                <span style={{ fontSize: 11.5, color: "var(--faint)", fontFamily: "var(--font-ibm-plex-mono)", flex: "0 0 auto" }}>{formatDate(n.date) || "—"}</span>
               </div>
             ))}
           </div>
