@@ -208,7 +208,7 @@ function TagsField({
             background: "var(--panel)",
             border: "1px solid var(--border)",
             borderRadius: 8,
-            boxShadow: "0 14px 32px -10px rgba(20,15,8,.4)",
+            boxShadow: "0 14px 32px -10px rgba(0,0,0,.4)",
             zIndex: 10,
             maxHeight: 180,
             overflowY: "auto",

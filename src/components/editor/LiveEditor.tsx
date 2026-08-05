@@ -24,6 +24,14 @@ export function LiveEditor({ note }: { note: Note }) {
   const noteIdRef = useRef(note.id);
   noteIdRef.current = note.id;
 
+  // Tracks the content this editor instance itself last serialized to the
+  // store, so the content-watching effect below can tell "I just typed
+  // this, the DOM already matches" apart from "something external changed
+  // this note's content while I had it open" (undo/redo, a realtime sync
+  // update, the same note edited in a split pane) — only the latter needs
+  // a DOM refresh; re-rendering on every keystroke would clobber the caret.
+  const lastEditorContentRef = useRef(note.content);
+
   if (!engineRef.current) {
     engineRef.current = new EditorEngine({
       hasNote: (t) => !!byTitle(t),
@@ -46,7 +54,10 @@ export function LiveEditor({ note }: { note: Note }) {
           .filter((t) => !dq || t.toLowerCase().includes(dq))
           .slice(0, 8);
       },
-      onContentChange: (content) => setNoteContent(noteIdRef.current, content),
+      onContentChange: (content) => {
+        lastEditorContentRef.current = content;
+        setNoteContent(noteIdRef.current, content);
+      },
       onPopupChange: setPopup,
       onPickLink: (title) => openOrCreate(title),
       onOpenSearch: openSearch,
@@ -91,11 +102,15 @@ export function LiveEditor({ note }: { note: Note }) {
   useEffect(() => {
     const engine = engineRef.current!;
     if (!engine.ed) return;
-    // Re-render whenever we switch to a different note, regardless of focus —
-    // in-place edits to the SAME note never hit this branch since serialize()
-    // already kept the DOM in sync (avoids clobbering the caret while typing).
-    if (note.id !== lastNoteId.current) {
+    // Always re-render on switching to a different note. For the SAME note,
+    // only re-render when the content didn't come from this editor's own
+    // typing (tracked via lastEditorContentRef in onContentChange) — i.e.
+    // undo/redo, a remote sync update, or the same note edited in a split
+    // pane. A plain in-place keystroke already kept the DOM in sync via
+    // serialize(), so re-rendering there would just clobber the caret.
+    if (note.id !== lastNoteId.current || note.content !== lastEditorContentRef.current) {
       engine.renderFull(note.content);
+      lastEditorContentRef.current = note.content;
     }
     lastNoteId.current = note.id;
   }, [note.id, note.content]);

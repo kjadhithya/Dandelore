@@ -35,7 +35,7 @@ a:hover {
   height: 9px;
 }
 .vscroll::-webkit-scrollbar-thumb {
-  background: rgba(120, 105, 80, 0.32);
+  background: var(--edge, rgba(120, 105, 80, 0.32));
   border-radius: 6px;
 }
 .vscroll::-webkit-scrollbar-track {
