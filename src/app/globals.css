@@ -281,7 +281,7 @@ select:focus {
 }
 .liveedit .wl.missing {
   color: var(--accent-faded, rgba(201, 138, 138, 0.55));
-  border-color: var(--accent-faded, rgba(201, 138, 138, 0.5));
+  border-color: var(--accent-faded-border, rgba(201, 138, 138, 0.25));
 }
 .liveedit .exlink {
   color: var(--accent-text, var(--accent, #b0623b));
@@ -315,6 +315,7 @@ select:focus {
 }
 .readview .wl.missing {
   color: var(--accent-faded, rgba(201, 138, 138, 0.55));
+  border-bottom: 1px solid var(--accent-faded-border, rgba(201, 138, 138, 0.25));
 }
 
 /* Native date-input calendar-picker icons ignore currentColor entirely —

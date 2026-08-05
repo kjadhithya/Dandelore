@@ -9,6 +9,7 @@ export interface DerivedColors {
   accent: string;
   accentText: string;
   accentFadedRgba: string;
+  accentFadedBorderRgba: string;
   accentSelRgba: string;
   accentButtonText: string;
   isDark: boolean;
@@ -30,12 +31,17 @@ export function useDerivedTheme(): DerivedColors {
     // darkening reduces contrast on a dark background, so this backs off
     // from the requested depth as needed rather than risking illegible text.
     const accentFadedRgba = deepenAccent(accent, bg, 0.22, 2.6);
+    // The underline under a faded/missing-page link reads as more clearly
+    // de-emphasized than its text when it's fainter than the text color,
+    // not just the same color repeated on a thin line.
+    const fadedRgb = hexToRgb(accentFadedRgba);
+    const accentFadedBorderRgba = `rgba(${fadedRgb[0]},${fadedRgb[1]},${fadedRgb[2]},0.35)`;
     const rgb = hexToRgb(accent);
     const accentSelRgba = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.32)`;
     // Text drawn ON TOP of a solid accent button — the accent itself can be
     // anything from a pale pastel to near-black, so a fixed white doesn't
     // always have enough contrast; pick whichever of black/white reads best.
     const accentButtonText = bestTextOn(accent);
-    return { theme, accent, accentText, accentFadedRgba, accentSelRgba, accentButtonText, isDark };
+    return { theme, accent, accentText, accentFadedRgba, accentFadedBorderRgba, accentSelRgba, accentButtonText, isDark };
   }, [theme, accent]);
 }
