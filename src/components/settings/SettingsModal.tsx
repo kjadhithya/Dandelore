@@ -83,7 +83,7 @@ export function SettingsModal() {
         <select
           value={value}
           onChange={(e) => onSelect(e.target.value)}
-          style={{ border: "1px solid var(--border)", background: "var(--input)", color: "var(--ink)", borderRadius: 9, padding: "11px 12px", fontSize: 14, fontFamily: "inherit", width: "100%" }}
+          style={{ border: "1px solid var(--border)", background: "var(--input)", color: "var(--ink)", borderRadius: 9, padding: "11px 30px 11px 12px", fontSize: 14, fontFamily: "inherit", width: "100%" }}
         >
           {FONT_OPTS.map((f) => (
             <option key={f} value={f}>
@@ -98,7 +98,7 @@ export function SettingsModal() {
         <select
           value={value}
           onChange={(e) => onSelect(e.target.value)}
-          style={{ border: "1px solid var(--border)", background: "var(--input)", color: "var(--ink)", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontFamily: "inherit" }}
+          style={{ border: "1px solid var(--border)", background: "var(--input)", color: "var(--ink)", borderRadius: 8, padding: "6px 26px 6px 10px", fontSize: 13, fontFamily: "inherit" }}
         >
           {FONT_OPTS.map((f) => (
             <option key={f} value={f}>
@@ -248,7 +248,7 @@ export function SettingsModal() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width: 460, maxWidth: "92vw", background: "var(--bg)", borderRadius: 14, boxShadow: "0 30px 70px -18px rgba(50,40,25,.6)", overflow: "hidden" }}
+        style={{ width: 460, maxWidth: "92vw", background: "var(--bg)", borderRadius: 14, boxShadow: "0 30px 70px -18px rgba(0,0,0,.5)", overflow: "hidden" }}
       >
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-soft)", display: "flex", alignItems: "center" }}>
           <span style={{ flex: 1, fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 17, color: "var(--ink)" }}>Settings</span>

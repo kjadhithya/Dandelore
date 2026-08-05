@@ -294,7 +294,7 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
                 background: "var(--panel)",
                 border: "1px solid var(--border)",
                 borderRadius: 10,
-                boxShadow: "0 16px 40px -12px rgba(25,20,12,.5)",
+                boxShadow: "0 16px 40px -12px rgba(0,0,0,.45)",
                 padding: 5,
               }}
             >
@@ -367,7 +367,7 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
           <TitleField value={note.title} onChange={side.onTitle} />
           {side.metaOpen ? (
-            <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, padding: "11px 13px", display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+            <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, padding: "11px 13px", display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ width: 74, color: "var(--faint)", fontSize: 12, flex: "0 0 auto" }}>Category</span>
                 <CategoryDropdown value={side.categoryVal} onSelect={side.onCategorySelect} />
@@ -397,7 +397,7 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
             </div>
           ) : null}
           {chipsVisible && (
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 7, fontSize: 12, marginBottom: 14 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 7, fontSize: 12 }}>
               {hasCat && (
                 <span
                   onClick={() => goCategory(note.category)}
@@ -421,7 +421,9 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
               </span>
             </div>
           )}
-          <div style={{ position: "relative" }}>{side.reading ? <ReadingView note={note} /> : <LiveEditor note={note} />}</div>
+          <div style={{ marginTop: 22, paddingTop: 20, borderTop: "1px solid var(--border-soft)" }}>
+            <div style={{ position: "relative" }}>{side.reading ? <ReadingView note={note} /> : <LiveEditor note={note} />}</div>
+          </div>
         </div>
       </div>
     </div>

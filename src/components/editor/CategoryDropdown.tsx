@@ -132,7 +132,7 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
             background: "var(--panel)",
             border: "1px solid var(--border)",
             borderRadius: 10,
-            boxShadow: "0 16px 40px -12px rgba(25,20,12,.5)",
+            boxShadow: "0 16px 40px -12px rgba(0,0,0,.45)",
             padding: 5,
             maxHeight: 280,
             overflowY: "auto",

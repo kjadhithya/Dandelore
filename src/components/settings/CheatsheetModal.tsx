@@ -14,7 +14,7 @@ export function CheatsheetModal() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width: 520, maxWidth: "92vw", maxHeight: "78vh", display: "flex", flexDirection: "column", background: "var(--bg)", borderRadius: 14, boxShadow: "0 30px 70px -18px rgba(50,40,25,.6)", overflow: "hidden" }}
+        style={{ width: 520, maxWidth: "92vw", maxHeight: "78vh", display: "flex", flexDirection: "column", background: "var(--bg)", borderRadius: 14, boxShadow: "0 30px 70px -18px rgba(0,0,0,.5)", overflow: "hidden" }}
       >
         <div style={{ flex: "0 0 auto", padding: "16px 20px", borderBottom: "1px solid var(--border-soft)", display: "flex", alignItems: "center" }}>
           <span style={{ flex: 1, fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 17, color: "var(--ink)" }}>Markdown cheatsheet</span>

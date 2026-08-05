@@ -11,7 +11,7 @@ const menuWrapStyle = (x: number, y: number, minWidth = 194): React.CSSPropertie
   background: "var(--panel)",
   border: "1px solid var(--border)",
   borderRadius: 10,
-  boxShadow: "0 18px 44px -12px rgba(25,20,12,.55)",
+  boxShadow: "0 18px 44px -12px rgba(0,0,0,.45)",
   padding: 5,
   zIndex: 62,
 });

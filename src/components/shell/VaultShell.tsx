@@ -186,7 +186,7 @@ export function VaultShell() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 10px 24px -6px rgba(40,30,15,.45)",
+            boxShadow: "0 10px 24px -6px rgba(0,0,0,.4)",
             cursor: "pointer",
           }}
         >

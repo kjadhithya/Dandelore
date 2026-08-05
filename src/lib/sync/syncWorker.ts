@@ -250,6 +250,62 @@ async function pushCategories(vaultId: string, categories: string[]) {
   }
 }
 
+interface RemoteSettingsRow {
+  theme: string;
+  accent_color: string;
+  app_font: string;
+  note_font: string;
+  title_font: string;
+  sort: string;
+}
+
+/** Appearance prefs used to live in localStorage only, so they never
+ * followed the user across devices — opening the vault on a second device
+ * always showed the default theme/fonts. One row per vault, applied on top
+ * of (and afterwards keeping in sync with) whatever localStorage already
+ * set for this device. */
+function settingsToRow(vaultId: string) {
+  const s = useVaultStore.getState();
+  return {
+    vault_id: vaultId,
+    theme: s.themeOverride || "Light Warm",
+    accent_color: s.accentOverride || "#b0623b",
+    app_font: s.appFont,
+    note_font: s.noteFont,
+    title_font: s.titleFont,
+    sort: s.sort,
+  };
+}
+
+function applySettingsRow(row: RemoteSettingsRow) {
+  useVaultStore.setState({
+    themeOverride: row.theme as never,
+    accentOverride: row.accent_color,
+    appFont: row.app_font as never,
+    noteFont: row.note_font as never,
+    titleFont: row.title_font as never,
+    sort: row.sort as never,
+  });
+}
+
+async function pullSettings(vaultId: string): Promise<string> {
+  const supabase = getSupabase();
+  if (!supabase) return "";
+  const { data } = await supabase.from("vault_settings").select("*").eq("vault_id", vaultId).maybeSingle();
+  if (data) {
+    applySettingsRow(data as RemoteSettingsRow);
+  } else {
+    await supabase.from("vault_settings").upsert(settingsToRow(vaultId));
+  }
+  return JSON.stringify(settingsToRow(vaultId));
+}
+
+async function pushSettings(vaultId: string) {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  await supabase.from("vault_settings").upsert(settingsToRow(vaultId));
+}
+
 async function replayQueue(vaultId: string) {
   const supabase = getSupabase();
   if (!supabase) return;
@@ -342,11 +398,13 @@ export function startSyncWorker(onReady?: () => void): () => void {
   const debouncedPushCategories = debounce((categories: string[]) => {
     pushCategories(vaultId, categories);
   }, 600);
+  const debouncedPushSettings = debounce(() => pushSettings(vaultId), 600);
 
   let prevNotes = useVaultStore.getState().notes;
   let prevFolderList = useVaultStore.getState().folderList;
   let prevCategories = useVaultStore.getState().categories;
   let prevDeleteEvent = useVaultStore.getState().noteDeleteEvent;
+  let prevSettingsSnapshot = "";
 
   const unsubscribeStore = useVaultStore.subscribe((state) => {
     if (state.notes !== prevNotes) {
@@ -373,6 +431,17 @@ export function startSyncWorker(onReady?: () => void): () => void {
       debouncedPushCategories.run(state.categories);
       prevCategories = state.categories;
     }
+    // Appearance prefs (theme/accent/fonts/sort) are a single row per vault
+    // rather than a field-by-field diff, so compare a snapshot instead of
+    // each field — cheap given how rarely these change, and it naturally
+    // ignores fields (like showRight) that aren't part of the synced row.
+    if (prevSettingsSnapshot) {
+      const snap = JSON.stringify(settingsToRow(vaultId));
+      if (snap !== prevSettingsSnapshot) {
+        prevSettingsSnapshot = snap;
+        debouncedPushSettings.run();
+      }
+    }
   });
 
   // Backgrounding the tab (switching apps on mobile, switching tabs, closing)
@@ -381,6 +450,7 @@ export function startSyncWorker(onReady?: () => void): () => void {
     debouncedPushNote.flush();
     debouncedPushFolders.flush();
     debouncedPushCategories.flush();
+    debouncedPushSettings.flush();
   };
   const onVisibilityChange = () => {
     if (document.visibilityState === "hidden") flushPending();
@@ -390,6 +460,7 @@ export function startSyncWorker(onReady?: () => void): () => void {
 
   async function init() {
     await pullAndMerge(vaultId!);
+    prevSettingsSnapshot = await pullSettings(vaultId!);
     onReady?.();
     await replayQueue(vaultId!);
     if (cancelled) return;
@@ -399,7 +470,11 @@ export function startSyncWorker(onReady?: () => void): () => void {
     channel = supabase
       .channel(`vault-${vaultId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "notes", filter: `vault_id=eq.${vaultId}` }, (payload) => {
-        if (payload.eventType === "DELETE") return;
+        if (payload.eventType === "DELETE") {
+          const deletedId = (payload.old as { id?: string } | null)?.id;
+          if (deletedId) useVaultStore.setState((s) => ({ notes: s.notes.filter((n) => n.id !== deletedId) }));
+          return;
+        }
         const row = payload.new as RemoteNoteRow;
         const state = useVaultStore.getState();
         const local = state.notes.find((n) => n.id === row.id);
@@ -418,6 +493,11 @@ export function startSyncWorker(onReady?: () => void): () => void {
           backfillAttachments(vaultId!, note);
         }
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "vault_settings", filter: `vault_id=eq.${vaultId}` }, (payload) => {
+        if (payload.eventType === "DELETE") return;
+        applySettingsRow(payload.new as RemoteSettingsRow);
+        prevSettingsSnapshot = JSON.stringify(settingsToRow(vaultId!));
+      })
       .subscribe();
   }
 
@@ -426,10 +506,22 @@ export function startSyncWorker(onReady?: () => void): () => void {
   const onOnline = () => replayQueue(vaultId!);
   window.addEventListener("online", onOnline);
 
+  // Realtime is the primary path for picking up other devices' changes
+  // live, but a dropped/never-established websocket (flaky network, a
+  // browser extension blocking it, a Supabase realtime hiccup) would
+  // otherwise fail silently and this device would only catch up on a full
+  // page reload. A periodic pull is a cheap self-healing fallback for that.
+  const pollInterval = setInterval(async () => {
+    if (document.visibilityState !== "visible") return;
+    await pullAndMerge(vaultId!);
+    prevSettingsSnapshot = await pullSettings(vaultId!);
+  }, 45000);
+
   return () => {
     cancelled = true;
     flushPending();
     unsubscribeStore();
+    clearInterval(pollInterval);
     window.removeEventListener("online", onOnline);
     document.removeEventListener("visibilitychange", onVisibilityChange);
     window.removeEventListener("pagehide", flushPending);

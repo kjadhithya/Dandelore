@@ -1,66 +1,10 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useVaultStore, sortNotes } from "@/lib/store/useVaultStore";
-import { SearchIcon, SortIcon, EditIcon, TrashIcon } from "@/components/icons/Icons";
+import { SearchIcon, SortIcon, MoreIcon } from "@/components/icons/Icons";
 import { SORT_OPTS } from "@/lib/theme/tokens";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
-
-function CategoryRowMenu({ name, onClose }: { name: string; onClose: () => void }) {
-  const s = useVaultStore();
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    function onDocPointerDown(e: PointerEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    }
-    document.addEventListener("pointerdown", onDocPointerDown);
-    return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [onClose]);
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        position: "absolute",
-        top: "calc(100% + 4px)",
-        right: 0,
-        zIndex: 30,
-        minWidth: 150,
-        background: "var(--panel)",
-        border: "1px solid var(--border)",
-        borderRadius: 10,
-        boxShadow: "0 16px 40px -12px rgba(25,20,12,.5)",
-        padding: 5,
-      }}
-    >
-      <div
-        onClick={() => {
-          useVaultStore.setState({ catRenaming: name });
-          onClose();
-        }}
-        style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 40, padding: "9px 11px", fontSize: 13, color: "var(--ink)", cursor: "pointer", borderRadius: 6 }}
-      >
-        <EditIcon size={14} />
-        Rename
-      </div>
-      <div
-        onClick={() => {
-          onClose();
-          s.openConfirm({
-            title: "Delete category?",
-            message: `"${name}" will be removed. Notes in this category are kept, just uncategorized.`,
-            confirmLabel: "Delete category",
-            onConfirm: () => s.deleteCategory(name),
-          });
-        }}
-        style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 40, padding: "9px 11px", fontSize: 13, color: "#c15a3d", cursor: "pointer", borderRadius: 6 }}
-      >
-        <TrashIcon size={14} />
-        Delete
-      </div>
-    </div>
-  );
-}
+import { CategoryActionsMenu } from "./CategoryActionsMenu";
 
 export function CategoriesView() {
   const s = useVaultStore();
@@ -112,7 +56,7 @@ export function CategoriesView() {
             {sortOpen && (
               <div
                 onMouseLeave={() => setSortOpen(false)}
-                style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 10, minWidth: 200, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(25,20,12,.5)", padding: 5 }}
+                style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 10, minWidth: 200, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(0,0,0,.45)", padding: 5 }}
               >
                 {SORT_OPTS.map(([key, label]) => (
                   <div
@@ -175,7 +119,7 @@ export function CategoriesView() {
                       </div>
                       <div
                         onClick={() => setMenuFor(menuFor === cat.name ? null : cat.name)}
-                        title="Edit category"
+                        title="More actions"
                         style={{
                           position: "relative",
                           flex: "0 0 auto",
@@ -189,8 +133,8 @@ export function CategoriesView() {
                           color: "var(--muted)",
                         }}
                       >
-                        <EditIcon size={14} />
-                        {menuFor === cat.name && <CategoryRowMenu name={cat.name} onClose={() => setMenuFor(null)} />}
+                        <MoreIcon size={16} />
+                        {menuFor === cat.name && <CategoryActionsMenu name={cat.name} onClose={() => setMenuFor(null)} />}
                       </div>
                     </div>
                   )}

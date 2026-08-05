@@ -120,9 +120,9 @@ select:focus {
   --border-soft: #312d25;
   --edge: #47423a;
   --ink: #ece4d4;
-  --text: #b8ad98;
+  --text: #c4b9a4;
   --muted: #8f8674;
-  --faint: #736b5a;
+  --faint: #82786a;
   --sage: #9db07c;
 }
 .vault[data-vtheme="light"] {
@@ -160,9 +160,9 @@ select:focus {
   --border-soft: #2c2c2c;
   --edge: #404040;
   --ink: #ececec;
-  --text: #b3b3b3;
+  --text: #bfbfbf;
   --muted: #8a8a8a;
-  --faint: #6c6c6c;
+  --faint: #7a7a7a;
   --sage: #8fae8f;
 }
 
@@ -276,7 +276,7 @@ select:focus {
 }
 .liveedit .wl {
   color: var(--accent-text, var(--accent, #b0623b));
-  border-bottom: 1px solid rgba(176, 98, 59, 0.35);
+  border-bottom: 1px solid var(--accent-sel, rgba(176, 98, 59, 0.35));
   cursor: pointer;
 }
 .liveedit .wl.missing {
@@ -310,7 +310,7 @@ select:focus {
 }
 .readview .wl {
   color: var(--accent-text, var(--accent, #b0623b));
-  border-bottom: 1px solid rgba(176, 98, 59, 0.35);
+  border-bottom: 1px solid var(--accent-sel, rgba(176, 98, 59, 0.35));
   cursor: pointer;
 }
 .readview .wl.missing {

@@ -42,7 +42,7 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
           background: "var(--bg)",
           borderRadius: "16px 16px 0 0",
           padding: "10px 14px calc(14px + env(safe-area-inset-bottom, 0px))",
-          boxShadow: "0 -18px 44px -12px rgba(25,20,12,.4)",
+          boxShadow: "0 -18px 44px -12px rgba(0,0,0,.4)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", padding: "6px 6px 10px" }}>

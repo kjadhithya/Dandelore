@@ -72,7 +72,7 @@ export function ConfirmDialog() {
             background: "var(--bg)",
             borderRadius: "16px 16px 0 0",
             padding: "18px 18px calc(18px + env(safe-area-inset-bottom, 0px))",
-            boxShadow: "0 -18px 44px -12px rgba(25,20,12,.4)",
+            boxShadow: "0 -18px 44px -12px rgba(0,0,0,.4)",
           }}
         >
           <div style={{ display: "flex", justifyContent: "center", padding: "0 0 12px" }}>
@@ -88,7 +88,7 @@ export function ConfirmDialog() {
     <div onClick={() => !busy && handleCancel()} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ width: 380, maxWidth: "90vw", background: "var(--bg)", borderRadius: 14, boxShadow: "0 30px 70px -18px rgba(50,40,25,.6)", padding: 20 }}
+        style={{ width: 380, maxWidth: "90vw", background: "var(--bg)", borderRadius: 14, boxShadow: "0 30px 70px -18px rgba(0,0,0,.5)", padding: 20 }}
       >
         {card}
       </div>

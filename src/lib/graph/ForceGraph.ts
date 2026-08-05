@@ -355,7 +355,7 @@ export class ForceGraph {
           dy = Math.random();
         }
         const d = Math.sqrt(d2);
-        const rep = 2600 / d2;
+        const rep = 4200 / d2;
         const fx = (dx / d) * rep,
           fy = (dy / d) * rep;
         A.vx += fx;
@@ -370,7 +370,7 @@ export class ForceGraph {
       const dx = B.x - A.x,
         dy = B.y - A.y;
       const d = Math.hypot(dx, dy) || 1;
-      const k = (d - 96) * 0.02;
+      const k = (d - 160) * 0.02;
       const fx = (dx / d) * k,
         fy = (dy / d) * k;
       A.vx += fx;

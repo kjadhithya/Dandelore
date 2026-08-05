@@ -99,7 +99,7 @@ export function RightPanel() {
             maxHeight: "70vh",
             background: "var(--panel)",
             borderRadius: "16px 16px 0 0",
-            boxShadow: "0 -18px 44px -12px rgba(25,20,12,.4)",
+            boxShadow: "0 -18px 44px -12px rgba(0,0,0,.4)",
             overflowY: "auto",
             padding: "10px 16px calc(18px + env(safe-area-inset-bottom, 0px))",
           }}
