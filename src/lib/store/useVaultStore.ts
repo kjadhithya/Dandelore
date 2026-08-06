@@ -306,7 +306,6 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   leftWidth: 256,
   showRight: true,
   syncError: null,
-  dragDebugLog: [],
 
   sideMode: "files",
   expanded: {},

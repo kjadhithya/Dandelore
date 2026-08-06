@@ -111,10 +111,6 @@ export interface VaultState {
   // successful sync of the same kind.
   syncError: string | null;
 
-  // TEMP-DND-DIAGNOSTIC: visible log of which native drag events actually
-  // fire, so this can be checked without devtools — remove once resolved.
-  dragDebugLog: string[];
-
   sideMode: "files" | "search";
   expanded: Record<string, boolean>;
 

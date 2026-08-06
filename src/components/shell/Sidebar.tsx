@@ -105,10 +105,89 @@ export function Sidebar() {
 
   const curId = s.curId();
 
-  // TEMP-DND-DIAGNOSTIC: records which native drag events actually fire,
-  // shown on-screen (no devtools needed) — remove once resolved.
-  function logDrag(label: string) {
-    useVaultStore.setState((st) => ({ dragDebugLog: [...st.dragDebugLog.slice(-6), `${new Date().toLocaleTimeString()} ${label}`] }));
+  // Native HTML5 drag-and-drop (draggable + dragstart/dragover/drop) turned
+  // out to be unreliable for at least one real user on macOS Chrome with a
+  // trackpad — dragstart simply never fired, even with dataTransfer set up
+  // correctly and every OS/browser-level cause (extensions, trackpad
+  // dragging setting, tablet mode) ruled out. That class of native-DnD +
+  // trackpad incompatibility is common enough elsewhere on the web that
+  // it's not worth chasing further; this reimplements drag-and-drop on
+  // plain mouse events instead, which don't depend on the browser/OS
+  // recognizing a "drag gesture" at all — just an ordinary click-hold-move.
+  const [ghost, setGhost] = useState<{ x: number; y: number; label: string } | null>(null);
+
+  function dropTargetAt(x: number, y: number): { folder: string | null; root: boolean } {
+    const el = document.elementFromPoint(x, y);
+    const folderEl = el?.closest("[data-drop-folder]") as HTMLElement | null;
+    if (folderEl) return { folder: folderEl.getAttribute("data-drop-folder"), root: false };
+    return { folder: null, root: !!el?.closest("[data-drop-root]") };
+  }
+
+  function startNoteDrag(e: React.MouseEvent, note: Note) {
+    if (e.button !== 0) return;
+    const startX = e.clientX,
+      startY = e.clientY;
+    let dragging = false;
+    function onMove(ev: MouseEvent) {
+      if (!dragging) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
+        dragging = true;
+        s.setDraggingId(note.id);
+      }
+      setGhost({ x: ev.clientX, y: ev.clientY, label: note.title || "Untitled" });
+      const t = dropTargetAt(ev.clientX, ev.clientY);
+      s.setDragOverFolder(t.folder);
+      if (!t.folder) s.setRootDragOver(t.root);
+    }
+    function onUp(ev: MouseEvent) {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      if (dragging) {
+        const t = dropTargetAt(ev.clientX, ev.clientY);
+        if (t.folder) s.moveNoteTo(note.id, t.folder);
+        else if (t.root) s.moveNoteTo(note.id, "");
+        s.setDraggingId(null);
+        s.setDragOverFolder(null);
+        s.setRootDragOver(false);
+        setGhost(null);
+      }
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
+  function startFolderDrag(e: React.MouseEvent, name: string) {
+    if (e.button !== 0) return;
+    const startX = e.clientX,
+      startY = e.clientY;
+    let dragging = false;
+    function onMove(ev: MouseEvent) {
+      if (!dragging) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
+        dragging = true;
+        s.setDraggingFolder(name);
+      }
+      setGhost({ x: ev.clientX, y: ev.clientY, label: name });
+      const t = dropTargetAt(ev.clientX, ev.clientY);
+      const target = t.folder && t.folder !== name ? t.folder : null;
+      s.setDragOverFolder(target);
+      if (!target) s.setRootDragOver(t.root);
+    }
+    function onUp(ev: MouseEvent) {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      if (dragging) {
+        const t = dropTargetAt(ev.clientX, ev.clientY);
+        if (t.folder && t.folder !== name) s.reparentFolder(name, t.folder);
+        else if (t.root) s.reparentFolder(name, null);
+        s.setDraggingFolder(null);
+        s.setDragOverFolder(null);
+        s.setRootDragOver(false);
+        setGhost(null);
+      }
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
   }
 
   function handleRowClick(e: React.MouseEvent, id: string) {
@@ -146,27 +225,7 @@ export function Sidebar() {
     }
     return (
       <div
-        draggable
-        onDragStart={(e) => {
-          logDrag(`dragstart note "${note.title || "Untitled"}"`);
-          // Some browsers (Firefox in particular) won't initiate a native
-          // drag at all without dataTransfer.setData being called, and
-          // without effectAllowed the drop target shows a "not allowed"
-          // cursor throughout the drag even though the drop would work.
-          e.dataTransfer.setData("text/plain", note.id);
-          e.dataTransfer.effectAllowed = "move";
-          s.setDraggingId(note.id);
-        }}
-        onDragEnd={() => {
-          logDrag("dragend");
-          // A drop on a valid target already clears this via
-          // moveNoteTo/reparentFolder; this covers a cancelled drag
-          // (dropped somewhere with no drop handler, or Escape) so the
-          // next drag doesn't start from stale state.
-          s.setDraggingId(null);
-          s.setDragOverFolder(null);
-          s.setRootDragOver(false);
-        }}
+        onMouseDown={(e) => startNoteDrag(e, note)}
         onClick={(e) => handleRowClick(e, note.id)}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -185,10 +244,8 @@ export function Sidebar() {
           fontSize: 13,
           fontWeight: note.id === curId ? 600 : 400,
           color: note.id === curId ? "var(--ink)" : "var(--text)",
-          // Without this, Chrome can interpret a click-and-drag starting on
-          // the title text as a text-selection gesture instead of a native
-          // element drag, so dragstart never fires — looks like drag and
-          // drop does nothing at all.
+          // Without this, holding and moving the mouse to drag a row
+          // highlights its text instead of dragging it.
           userSelect: "none",
           WebkitUserSelect: "none",
           background: s.selectedIds.includes(note.id)
@@ -239,36 +296,8 @@ export function Sidebar() {
     }
     return (
       <div
-        draggable
-        onDragStart={(e) => {
-          logDrag(`dragstart folder "${name}"`);
-          e.dataTransfer.setData("text/plain", name);
-          e.dataTransfer.effectAllowed = "move";
-          s.setDraggingFolder(name);
-        }}
-        onDragEnd={() => {
-          logDrag("dragend");
-          s.setDraggingId(null);
-          s.setDragOverFolder(null);
-          s.setRootDragOver(false);
-        }}
-        onDragOver={(e) => {
-          logDrag(`dragover folder "${name}"`);
-          e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
-          s.setDragOverFolder(name);
-        }}
-        onDragLeave={() => {
-          logDrag(`dragleave folder "${name}"`);
-          if (s.dragOverFolder === name) s.setDragOverFolder(null);
-        }}
-        onDrop={(e) => {
-          logDrag(`drop on folder "${name}"`);
-          e.preventDefault();
-          e.stopPropagation();
-          if (s.draggingFolder) s.reparentFolder(s.draggingFolder, name);
-          else if (s.draggingId) s.moveNoteTo(s.draggingId, name);
-        }}
+        data-drop-folder={name}
+        onMouseDown={(e) => startFolderDrag(e, name)}
         onClick={() => s.toggleFolder(name)}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -526,23 +555,7 @@ export function Sidebar() {
               </div>
             ))}
             <div
-              onDragOver={(e) => {
-                logDrag("dragover root");
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-                s.setRootDragOver(true);
-              }}
-              onDragLeave={() => {
-                logDrag("dragleave root");
-                s.setRootDragOver(false);
-              }}
-              onDrop={(e) => {
-                logDrag("drop on root");
-                e.preventDefault();
-                s.setRootDragOver(false);
-                if (s.draggingFolder) s.reparentFolder(s.draggingFolder, null);
-                else if (s.draggingId) s.moveNoteTo(s.draggingId, "");
-              }}
+              data-drop-root="1"
               style={{
                 minHeight: 24,
                 borderRadius: 8,
@@ -584,27 +597,30 @@ export function Sidebar() {
         </span>
       </div>
       )}
-      {/* TEMP-DND-DIAGNOSTIC: remove once drag-and-drop is confirmed working */}
-      <div
-        style={{
-          position: "fixed",
-          left: 8,
-          bottom: 8,
-          zIndex: 999,
-          maxWidth: 320,
-          background: "rgba(0,0,0,.85)",
-          color: "#fff",
-          fontFamily: "monospace",
-          fontSize: 11,
-          lineHeight: 1.5,
-          padding: "8px 10px",
-          borderRadius: 8,
-          pointerEvents: "none",
-        }}
-      >
-        <div style={{ fontWeight: 700, marginBottom: 2 }}>Drag debug (try dragging a note now)</div>
-        {s.dragDebugLog.length === 0 ? <div>No drag events fired yet.</div> : s.dragDebugLog.map((line, i) => <div key={i}>{line}</div>)}
-      </div>
+      {ghost && (
+        <div
+          style={{
+            position: "fixed",
+            left: ghost.x + 14,
+            top: ghost.y + 10,
+            zIndex: 999,
+            maxWidth: 220,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            background: "var(--panel)",
+            border: `1px solid ${accent}`,
+            borderRadius: 7,
+            padding: "5px 10px",
+            fontSize: 12.5,
+            color: "var(--ink)",
+            boxShadow: "0 6px 18px -4px rgba(0,0,0,.35)",
+            pointerEvents: "none",
+          }}
+        >
+          {ghost.label}
+        </div>
+      )}
     </>
   );
 }
