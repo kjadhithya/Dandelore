@@ -41,6 +41,17 @@ export function SettingsModal() {
 
   if (!s.settingsOpen) return null;
 
+  // Sync failures were previously silent — a schema mismatch or RLS
+  // rejection just left a note un-synced with no visible signal at all.
+  // Surfacing the raw error here means it can be screenshotted/copied
+  // straight out of the app instead of needing devtools.
+  const syncErrorBanner = s.syncError && (
+    <div style={{ background: "rgba(193,90,61,0.12)", border: "1px solid rgba(193,90,61,0.35)", borderRadius: 10, padding: "11px 13px", display: "flex", flexDirection: "column", gap: 4 }}>
+      <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: "#c15a3d" }}>Sync error</span>
+      <span style={{ fontSize: 12.5, color: "var(--ink)", lineHeight: 1.5, userSelect: "text", fontFamily: "var(--font-ibm-plex-mono)" }}>{s.syncError}</span>
+    </div>
+  );
+
   const themeCards = (
     <div style={{ display: "flex", gap: isMobile ? 10 : 14, flexWrap: isMobile ? "wrap" : "nowrap" }}>
       {THEMES.map((name) => {
@@ -241,6 +252,7 @@ export function SettingsModal() {
           </div>
         </div>
         <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "18px 16px calc(24px + env(safe-area-inset-bottom, 0px))", display: "flex", flexDirection: "column", gap: 22 }}>
+          {syncErrorBanner}
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <span style={{ fontSize: 13.5, color: "var(--ink)" }}>Appearance</span>
             {themeCards}
@@ -295,6 +307,7 @@ export function SettingsModal() {
           </div>
         </div>
         <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "26px 28px 32px", display: "flex", flexDirection: "column", gap: 28 }}>
+          {syncErrorBanner}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <SectionLabel>Appearance</SectionLabel>
             {themeCards}

@@ -299,6 +299,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   leftOpen: true,
   leftWidth: 256,
   showRight: true,
+  syncError: null,
 
   sideMode: "files",
   expanded: {},

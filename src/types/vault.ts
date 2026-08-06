@@ -105,6 +105,11 @@ export interface VaultState {
   leftWidth: number;
   showRight: boolean;
 
+  // Last error from a Supabase push/pull, surfaced in Settings so sync
+  // failures are visible without needing devtools — cleared on the next
+  // successful sync of the same kind.
+  syncError: string | null;
+
   sideMode: "files" | "search";
   expanded: Record<string, boolean>;
 

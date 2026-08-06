@@ -105,11 +105,17 @@ async function pullAndMerge(vaultId: string) {
   const supabase = getSupabase();
   if (!supabase) return;
 
-  const [{ data: remoteNotes }, { data: remoteFolders }, { data: remoteCategories }] = await Promise.all([
+  const [notesRes, foldersRes, categoriesRes] = await Promise.all([
     supabase.from("notes").select("*").eq("vault_id", vaultId),
     supabase.from("folders").select("name, parent").eq("vault_id", vaultId),
     supabase.from("categories").select("name").eq("vault_id", vaultId),
   ]);
+  const firstError = notesRes.error || foldersRes.error || categoriesRes.error;
+  if (firstError) reportSyncError("Loading vault", firstError.message);
+  else clearSyncError();
+  const { data: remoteNotes } = notesRes;
+  const { data: remoteFolders } = foldersRes;
+  const { data: remoteCategories } = categoriesRes;
 
   const localNotes = useVaultStore.getState().notes;
   const localById = new Map(localNotes.map((n) => [n.id, n]));
@@ -221,11 +227,23 @@ async function pullFoldersAndCategories(vaultId: string) {
   }
 }
 
+/** Surfaces the last Supabase push/pull failure in Settings — errors here
+ * were previously silent (queued for retry at best), so a persistent
+ * schema mismatch or RLS rejection gave no visible signal that anything
+ * was wrong at all. */
+function reportSyncError(context: string, message: string | undefined | null) {
+  useVaultStore.setState({ syncError: `${context}: ${message || "unknown error"}` });
+}
+function clearSyncError() {
+  if (useVaultStore.getState().syncError) useVaultStore.setState({ syncError: null });
+}
+
 async function pushNote(vaultId: string, note: Note): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) return false;
   const { error } = await supabase.from("notes").upsert(noteToRow(note, vaultId));
   if (error) {
+    reportSyncError("Saving note", error.message);
     await localDb.mutationQueue.add({
       table: "notes",
       op: "upsert",
@@ -233,6 +251,8 @@ async function pushNote(vaultId: string, note: Note): Promise<boolean> {
       payload: noteToRow(note, vaultId),
       createdAt: Date.now(),
     });
+  } else {
+    clearSyncError();
   }
   return !error;
 }
@@ -325,11 +345,14 @@ function applySettingsRow(row: RemoteSettingsRow) {
 async function pullSettings(vaultId: string): Promise<string> {
   const supabase = getSupabase();
   if (!supabase) return "";
-  const { data } = await supabase.from("vault_settings").select("*").eq("vault_id", vaultId).maybeSingle();
-  if (data) {
+  const { data, error } = await supabase.from("vault_settings").select("*").eq("vault_id", vaultId).maybeSingle();
+  if (error) {
+    reportSyncError("Loading settings", error.message);
+  } else if (data) {
     applySettingsRow(data as RemoteSettingsRow);
   } else {
-    await supabase.from("vault_settings").upsert(settingsToRow(vaultId));
+    const { error: upsertErr } = await supabase.from("vault_settings").upsert(settingsToRow(vaultId));
+    if (upsertErr) reportSyncError("Saving settings", upsertErr.message);
   }
   return JSON.stringify(settingsToRow(vaultId));
 }
@@ -337,7 +360,9 @@ async function pullSettings(vaultId: string): Promise<string> {
 async function pushSettings(vaultId: string) {
   const supabase = getSupabase();
   if (!supabase) return;
-  await supabase.from("vault_settings").upsert(settingsToRow(vaultId));
+  const { error } = await supabase.from("vault_settings").upsert(settingsToRow(vaultId));
+  if (error) reportSyncError("Saving settings", error.message);
+  else clearSyncError();
 }
 
 async function replayQueue(vaultId: string) {
