@@ -53,7 +53,7 @@ function HomeView({ split }: { split?: boolean }) {
       </svg>
       <div style={{ display: "flex", gap: 8, marginTop: split ? 28 : 34 }}>
         <div
-          onClick={newNote}
+          onClick={() => newNote()}
           title="New note"
           style={{ width: split ? 40 : 44, height: split ? 36 : 40, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--border)", borderRadius: "9px 0 0 9px", color: "var(--muted)", cursor: "pointer", background: "var(--bg)" }}
         >

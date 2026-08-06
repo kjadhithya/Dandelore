@@ -78,6 +78,8 @@ export function VaultShell() {
       if (nf) useVaultStore.setState({ noteFont: nf as never });
       const tf = localStorage.getItem("kv-titleFont");
       if (tf) useVaultStore.setState({ titleFont: tf as never });
+      const pc = localStorage.getItem("kv-pinnedCategories");
+      if (pc) useVaultStore.setState({ pinnedCategories: JSON.parse(pc) });
     } catch {}
   }, []);
 
@@ -89,6 +91,15 @@ export function VaultShell() {
       localStorage.setItem("kv-showRight", s.showRight ? "1" : "0");
     } catch {}
   }, [s.showRight]);
+
+  // Pinned categories are a per-device display preference, not synced vault
+  // data — kept local (like theme/accent/fonts) so pinning doesn't need a
+  // new Supabase column/migration for a purely cosmetic sort order.
+  useEffect(() => {
+    try {
+      localStorage.setItem("kv-pinnedCategories", JSON.stringify(s.pinnedCategories));
+    } catch {}
+  }, [s.pinnedCategories]);
 
   // Font choices were never saved anywhere, so a reload silently reverted
   // them to the hardcoded defaults regardless of what was picked in Settings.

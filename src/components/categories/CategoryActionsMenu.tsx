@@ -1,11 +1,12 @@
 "use client";
 import React, { useEffect, useRef } from "react";
 import { useVaultStore } from "@/lib/store/useVaultStore";
-import { EditIcon, TrashIcon } from "@/components/icons/Icons";
+import { EditIcon, TrashIcon, PinIcon } from "@/components/icons/Icons";
 
 export function CategoryActionsMenu({ name, onClose, onDeleted }: { name: string; onClose: () => void; onDeleted?: () => void }) {
   const s = useVaultStore();
   const ref = useRef<HTMLDivElement | null>(null);
+  const pinned = s.pinnedCategories.includes(name);
 
   useEffect(() => {
     function onDocPointerDown(e: PointerEvent) {
@@ -31,6 +32,16 @@ export function CategoryActionsMenu({ name, onClose, onDeleted }: { name: string
         padding: 5,
       }}
     >
+      <div
+        onClick={() => {
+          s.togglePinCategory(name);
+          onClose();
+        }}
+        style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 40, padding: "9px 11px", fontSize: 13, color: "var(--ink)", cursor: "pointer", borderRadius: 6 }}
+      >
+        <PinIcon size={14} filled={pinned} />
+        {pinned ? "Unpin" : "Pin"}
+      </div>
       <div
         onClick={() => {
           useVaultStore.setState({ catRenaming: name });

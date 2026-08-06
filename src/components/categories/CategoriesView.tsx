@@ -1,7 +1,7 @@
 "use client";
 import React, { useMemo, useState } from "react";
 import { useVaultStore, sortNotes } from "@/lib/store/useVaultStore";
-import { SearchIcon, SortIcon, MoreIcon } from "@/components/icons/Icons";
+import { SearchIcon, SortIcon, MoreIcon, PinIcon } from "@/components/icons/Icons";
 import { SORT_OPTS } from "@/lib/theme/tokens";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { CategoryActionsMenu } from "./CategoryActionsMenu";
@@ -20,9 +20,11 @@ export function CategoriesView() {
         .filter((c) => !query.trim() || c.toLowerCase().includes(query.trim().toLowerCase()))
         .map((c) => ({
           name: c,
+          pinned: s.pinnedCategories.includes(c),
           notes: sortNotes(s.notes.filter((n) => n.category === c), s.sort),
-        })),
-    [s.categories, s.notes, s.sort, query],
+        }))
+        .sort((a, b) => Number(b.pinned) - Number(a.pinned)),
+    [s.categories, s.notes, s.sort, s.pinnedCategories, query],
   );
   const sortLabel = SORT_OPTS.find(([k]) => k === s.sort)?.[1] || "Sort";
 
@@ -109,9 +111,10 @@ export function CategoriesView() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           onClick={() => s.goCategory(cat.name)}
-                          style={{ cursor: "pointer", fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 16.5, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 16.5, color: "var(--ink)", overflow: "hidden" }}
                         >
-                          {cat.name}
+                          {cat.pinned && <PinIcon size={13} filled />}
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cat.name}</span>
                         </div>
                         <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 1 }}>
                           {cat.notes.length} note{cat.notes.length === 1 ? "" : "s"}

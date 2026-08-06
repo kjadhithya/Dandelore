@@ -28,11 +28,25 @@ function walk(node: Node): string {
   if (tag === "script" || tag === "style") return "";
   if (tag === "br") return "\n";
 
+  if (tag === "img") {
+    const src = el.getAttribute("src") || "";
+    if (!src) return "";
+    const alt = el.getAttribute("alt") || "";
+    return `![${alt}](${src})`;
+  }
+
   if (tag === "a") {
+    // Rich-copy sources (Google Docs, web apps, chat UIs) often wrap an
+    // image in a link with no other visible text — without this, the
+    // fallback below would emit the bare href as literal paragraph text.
+    if (el.children.length === 1 && el.children[0].tagName.toLowerCase() === "img" && !(el.textContent || "").trim()) {
+      return walk(el.children[0]);
+    }
     const href = el.getAttribute("href") || "";
     const text = childrenToMd(el).trim();
     if (!href) return text;
-    if (!text || text === href) return href;
+    if (!text) return "";
+    if (text === href) return href;
     return `[${text}](${href})`;
   }
   if (tag === "strong" || tag === "b") {

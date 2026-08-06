@@ -130,7 +130,7 @@ export interface VaultStore extends VaultState {
   // notes CRUD
   openOrCreate: (title: string, folder?: string) => void;
   ensureNote: (title: string, folder?: string) => string;
-  newNote: () => void;
+  newNote: (category?: string) => void;
   deleteNote: (id: string) => void;
   duplicateNote: (id: string) => void;
   deleteCurrent: () => void;
@@ -194,6 +194,7 @@ export interface VaultStore extends VaultState {
   deleteCategory: (name: string) => void;
   renameCategory: (oldN: string, newN: string) => void;
   addCategoryTop: (name: string) => void;
+  togglePinCategory: (name: string) => void;
 
   // note menu / accent / theme
   toggleNoteMenu: () => void;
@@ -285,6 +286,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   draggingFolder: null,
 
   categories: [],
+  pinnedCategories: [],
 
   tabs: [mkTab({ kind: "home" })],
   active: 0,
@@ -668,7 +670,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     set((s) => ({ notes: [...s.notes, note] }));
     return id;
   },
-  newNote: () => {
+  newNote: (category) => {
     const id = newId();
     const note: Note = {
       id,
@@ -676,7 +678,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       folder: "",
       date: TODAY,
       modified: new Date().toISOString(),
-      category: "",
+      category: category || "",
       tags: [],
       attachments: {},
       content: "",
@@ -935,6 +937,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   deleteCategory: (name) => {
     set((s) => ({
       categories: s.categories.filter((c) => c !== name),
+      pinnedCategories: s.pinnedCategories.filter((c) => c !== name),
       notes: s.notes.map((n) => (n.category === name ? { ...n, category: "" } : n)),
     }));
   },
@@ -944,6 +947,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       if (!newN || (s.categories.includes(newN) && newN.toLowerCase() !== oldN.toLowerCase())) return { catRenaming: null };
       return {
         categories: s.categories.map((c) => (c === oldN ? newN : c)),
+        pinnedCategories: s.pinnedCategories.map((c) => (c === oldN ? newN : c)),
         notes: s.notes.map((n) => (n.category === oldN ? { ...n, category: newN } : n)),
         catRenaming: null,
       };
@@ -953,6 +957,10 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     const v = name.trim();
     if (v) get().addCategoryGlobal(v);
   },
+  togglePinCategory: (name) =>
+    set((s) => ({
+      pinnedCategories: s.pinnedCategories.includes(name) ? s.pinnedCategories.filter((c) => c !== name) : [...s.pinnedCategories, name],
+    })),
 
   // ---------- note menu / accent / theme ----------
   toggleNoteMenu: () => set((s) => ({ noteMenuOpen: !s.noteMenuOpen, noteMenuMove: false })),
@@ -1304,6 +1312,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       folderList: [],
       folderParents: {},
       categories: [],
+      pinnedCategories: [],
       tabs: [mkTab({ kind: "home" })],
       active: 0,
       split: null,

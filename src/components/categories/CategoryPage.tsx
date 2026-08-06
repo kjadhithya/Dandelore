@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { useVaultStore, sortNotes } from "@/lib/store/useVaultStore";
-import { SortIcon, MoreIcon } from "@/components/icons/Icons";
+import { SortIcon, MoreIcon, PlusIcon } from "@/components/icons/Icons";
 import { SORT_OPTS } from "@/lib/theme/tokens";
 import { formatDate } from "@/lib/date";
 import { CategoryActionsMenu } from "./CategoryActionsMenu";
@@ -49,6 +49,13 @@ export function CategoryPage({ name }: { name: string }) {
           ) : (
             <div style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 24, color: "var(--ink)", flex: 1 }}>{name}</div>
           )}
+          <div
+            onClick={() => s.newNote(name)}
+            title="New note in this category"
+            style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, cursor: "pointer", color: "var(--muted)" }}
+          >
+            <PlusIcon size={18} />
+          </div>
           <div style={{ position: "relative" }}>
             <div
               onClick={() => setMenuOpen((v) => !v)}

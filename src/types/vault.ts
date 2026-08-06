@@ -88,6 +88,7 @@ export interface VaultState {
   draggingFolder: string | null;
 
   categories: string[];
+  pinnedCategories: string[];
 
   tabs: TabState[];
   active: number;

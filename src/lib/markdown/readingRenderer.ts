@@ -62,6 +62,10 @@ function inline(s: string, atts: Record<string, Attachment>, hasNote: TitleResol
     );
   });
   s = s.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    '<img src="$2" alt="$1" style="max-width:100%;border-radius:8px;margin:8px 0;display:block;">',
+  );
+  s = s.replace(
     /\[\[([^\]]+)\]\]/g,
     (_m, t) =>
       '<a class="wl' +
