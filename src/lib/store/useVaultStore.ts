@@ -667,7 +667,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       category: "",
       tags: [],
       attachments: {},
-      content: "# " + title + "\n\n",
+      content: "",
     };
     set((s) => ({ notes: [...s.notes, note] }));
     return id;

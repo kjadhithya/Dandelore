@@ -4,7 +4,7 @@ import { useVaultStore } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { THEMES, THEME_SWATCH, ACCENT_SWATCHES, FONT_OPTS } from "@/lib/theme/tokens";
-import { CloseIcon, ChevronDownSmall } from "@/components/icons/Icons";
+import { CloseIcon, ChevronDownSmall, UploadIcon, DownloadIcon } from "@/components/icons/Icons";
 import { CheatsheetModal } from "./CheatsheetModal";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { signOutSupabase } from "@/lib/supabase/vaultAuth";
@@ -202,38 +202,58 @@ export function SettingsModal() {
     </>
   );
 
+  const dataRow = (icon: React.ReactNode, label: string, onClick: () => void, primary?: boolean) => (
+    <div
+      onClick={onClick}
+      style={{
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: isMobile ? "12px 13px" : "10px 12px",
+        borderRadius: 9,
+        border: primary ? "none" : "1px solid var(--border)",
+        background: primary ? accent : "transparent",
+        color: primary ? accentButtonText : "var(--ink)",
+      }}
+    >
+      <span style={{ display: "flex", flex: "0 0 auto", opacity: primary ? 1 : 0.75 }}>{icon}</span>
+      <span style={{ fontSize: 13, fontWeight: primary ? 500 : 400 }}>{label}</span>
+    </div>
+  );
+
+  const dataGroup = (title: string, rows: React.ReactNode) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: "var(--faint)" }}>{title}</span>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>{rows}</div>
+    </div>
+  );
+
+  const vaultDataInner = (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <SectionLabel>Vault data</SectionLabel>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+        {dataGroup(
+          "Import",
+          <>
+            {dataRow(<UploadIcon size={15} />, "Markdown files…", () => document.getElementById("importInput")?.click())}
+            {dataRow(<UploadIcon size={15} />, "Full backup (JSON)…", () => document.getElementById("importJsonInput")?.click())}
+          </>,
+        )}
+        {dataGroup(
+          "Export",
+          <>
+            {dataRow(<DownloadIcon size={15} />, "Markdown files (.zip)", () => s.exportMarkdownZip())}
+            {dataRow(<DownloadIcon size={15} />, "Full backup (JSON)", () => s.exportJson(), true)}
+          </>,
+        )}
+      </div>
+    </div>
+  );
   const vaultDataSection = (
     <>
       <Divider />
-      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-        <SectionLabel>Vault data</SectionLabel>
-        <div style={{ display: "flex", gap: 9, flexDirection: isMobile ? "column" : "row" }}>
-          <div
-            onClick={() => document.getElementById("importInput")?.click()}
-            style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 9, padding: isMobile ? 12 : 10 }}
-          >
-            Import Markdown…
-          </div>
-          <div
-            onClick={() => document.getElementById("importJsonInput")?.click()}
-            style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 9, padding: isMobile ? 12 : 10 }}
-          >
-            Import vault (JSON)…
-          </div>
-          <div
-            onClick={() => s.exportMarkdownZip()}
-            style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 9, padding: isMobile ? 12 : 10 }}
-          >
-            Export vault (Markdown)
-          </div>
-          <div
-            onClick={() => s.exportJson()}
-            style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, color: accentButtonText, background: accent, borderRadius: 9, padding: isMobile ? 12 : 10 }}
-          >
-            Export vault (JSON)
-          </div>
-        </div>
-      </div>
+      {vaultDataInner}
     </>
   );
 
@@ -355,35 +375,7 @@ export function SettingsModal() {
                 </div>
               )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <SectionLabel>Vault data</SectionLabel>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <div
-                    onClick={() => document.getElementById("importInput")?.click()}
-                    style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, fontWeight: 500, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 9, padding: 12 }}
-                  >
-                    Import Markdown…
-                  </div>
-                  <div
-                    onClick={() => document.getElementById("importJsonInput")?.click()}
-                    style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, fontWeight: 500, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 9, padding: 12 }}
-                  >
-                    Import vault (JSON)…
-                  </div>
-                  <div
-                    onClick={() => s.exportMarkdownZip()}
-                    style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, fontWeight: 500, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 9, padding: 12 }}
-                  >
-                    Export vault (Markdown)
-                  </div>
-                  <div
-                    onClick={() => s.exportJson()}
-                    style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, fontWeight: 500, color: accentButtonText, background: accent, borderRadius: 9, padding: 12 }}
-                  >
-                    Export vault (JSON)
-                  </div>
-                </div>
-              </div>
+              {vaultDataInner}
 
               <div
                 onClick={() => s.openCheat()}
