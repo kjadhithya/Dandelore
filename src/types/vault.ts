@@ -156,7 +156,6 @@ export interface VaultState {
   renaming: string | null;
   draggingId: string | null;
   dragOverFolder: string | null;
-  rootDragOver: boolean;
 
   calYear: number;
   calMonth: number;

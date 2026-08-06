@@ -81,6 +81,176 @@ function snippetOf(n: Note): string {
   return line.replace(/[#*`>[\]]/g, "").trim().slice(0, 80) || n.folder;
 }
 
+// NoteRow and FolderHeader are declared here at module scope, not nested
+// inside Sidebar(), so their component identity stays stable across
+// re-renders. When they were nested, every Sidebar re-render (which
+// happens on every keystroke while renaming, since the draft text lives
+// in the store) created a brand-new function for React to diff against —
+// React saw that as a different component type and remounted the row
+// from scratch, including its <input>. The remounted input re-ran
+// autoFocus (and, for the folder rename box, re-selected its text), so
+// each keystroke landed in a freshly re-selected field and replaced the
+// previous character instead of appending to it.
+function NoteRow({
+  note,
+  onDragStart,
+  onRowClick,
+}: {
+  note: Note;
+  onDragStart: (e: React.MouseEvent, note: Note) => void;
+  onRowClick: (e: React.MouseEvent, id: string) => void;
+}) {
+  const s = useVaultStore();
+  const isMobile = useIsMobile();
+  const curId = s.curId();
+  const [hover, setHover] = useState(false);
+  const isRenaming = s.renaming === note.id;
+  if (isRenaming) {
+    return (
+      <div style={{ padding: "2px 9px" }}>
+        <input
+          autoFocus
+          onFocus={(e) => e.target.select()}
+          value={note.title}
+          onChange={(e) => s.onRenameLive(note.id, e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            else if (e.key === "Escape") s.stopRename();
+          }}
+          onBlur={() => s.stopRename()}
+          style={{
+            width: "100%",
+            border: "1px solid var(--accent, #b0623b)",
+            background: "var(--input)",
+            borderRadius: 6,
+            padding: "4px 8px",
+            fontSize: 13,
+            color: "var(--ink)",
+          }}
+        />
+      </div>
+    );
+  }
+  return (
+    <div
+      onMouseDown={(e) => onDragStart(e, note)}
+      onClick={(e) => onRowClick(e, note.id)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        s.onNoteContext(note.id, e.clientX, e.clientY);
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: isMobile ? "11px 9px" : "6px 9px",
+        minHeight: isMobile ? 40 : undefined,
+        borderRadius: 6,
+        cursor: "pointer",
+        fontSize: 13,
+        fontWeight: note.id === curId ? 600 : 400,
+        color: note.id === curId ? "var(--ink)" : "var(--text)",
+        // Without this, holding and moving the mouse to drag a row
+        // highlights its text instead of dragging it.
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        background: s.selectedIds.includes(note.id)
+          ? "var(--active)"
+          : note.id === curId
+            ? "var(--ribbon)"
+            : hover
+              ? "var(--ribbon)"
+              : "transparent",
+      }}
+    >
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{note.title || "Untitled"}</span>
+    </div>
+  );
+}
+
+function FolderHeader({
+  name,
+  depth,
+  count,
+  open,
+  onDragStart,
+}: {
+  name: string;
+  depth: number;
+  count: number;
+  open: boolean;
+  onDragStart: (e: React.MouseEvent, name: string) => void;
+}) {
+  const s = useVaultStore();
+  const isMobile = useIsMobile();
+  const [hover, setHover] = useState(false);
+  const isRenaming = s.folderRenaming === name;
+  if (isRenaming) {
+    return (
+      <div style={{ padding: `2px ${9 + depth * 13}px 2px ${8 + depth * 13}px` }}>
+        <input
+          autoFocus
+          onFocus={(e) => e.target.select()}
+          value={s.folderRenameDraft}
+          onChange={(e) => s.onFolderRenameDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") s.commitFolderRename(name, s.folderRenameDraft);
+            else if (e.key === "Escape") s.startFolderRename(name);
+          }}
+          onBlur={() => s.commitFolderRename(name, s.folderRenameDraft)}
+          style={{
+            width: "100%",
+            border: "1px solid var(--accent, #b0623b)",
+            background: "var(--input)",
+            borderRadius: 6,
+            padding: "4px 8px",
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: ".04em",
+            textTransform: "uppercase",
+            color: "var(--ink)",
+          }}
+        />
+      </div>
+    );
+  }
+  return (
+    <div
+      onMouseDown={(e) => onDragStart(e, name)}
+      onClick={() => s.toggleFolder(name)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        s.onFolderContext(name, e.clientX, e.clientY);
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: `${isMobile ? 11 : 6}px ${9 + depth * 13}px ${isMobile ? 11 : 6}px ${8 + depth * 13}px`,
+        minHeight: isMobile ? 40 : undefined,
+        borderRadius: 6,
+        cursor: "pointer",
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: ".04em",
+        textTransform: "uppercase",
+        color: "var(--text)",
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        background: hover ? "var(--ribbon)" : "transparent",
+      }}
+    >
+      <ChevronRightIcon size={10} style={{ transform: open ? "rotate(90deg)" : "none", flex: "0 0 auto", transition: "transform .1s" }} />
+      <span style={{ flex: 1 }}>{name}</span>
+      <span style={{ fontSize: 10, color: "var(--faint)", fontWeight: 500 }}>{count}</span>
+    </div>
+  );
+}
+
 export function Sidebar() {
   const s = useVaultStore();
   const { accent } = useDerivedTheme();
@@ -102,8 +272,6 @@ export function Sidebar() {
     () => [...folderRows.flatMap((r) => r.notes.map((n) => n.id)), ...rNotes.map((n) => n.id)],
     [folderRows, rNotes],
   );
-
-  const curId = s.curId();
 
   // Native HTML5 drag-and-drop (draggable + dragstart/dragover/drop) turned
   // out to be unreliable for at least one real user on macOS Chrome with a
@@ -137,7 +305,6 @@ export function Sidebar() {
       setGhost({ x: ev.clientX, y: ev.clientY, label: note.title || "Untitled" });
       const t = dropTargetAt(ev.clientX, ev.clientY);
       s.setDragOverFolder(t.folder);
-      if (!t.folder) s.setRootDragOver(t.root);
     }
     function onUp(ev: MouseEvent) {
       document.removeEventListener("mousemove", onMove);
@@ -148,7 +315,6 @@ export function Sidebar() {
         else if (t.root) s.moveNoteTo(note.id, "");
         s.setDraggingId(null);
         s.setDragOverFolder(null);
-        s.setRootDragOver(false);
         setGhost(null);
       }
     }
@@ -171,7 +337,6 @@ export function Sidebar() {
       const t = dropTargetAt(ev.clientX, ev.clientY);
       const target = t.folder && t.folder !== name ? t.folder : null;
       s.setDragOverFolder(target);
-      if (!target) s.setRootDragOver(t.root);
     }
     function onUp(ev: MouseEvent) {
       document.removeEventListener("mousemove", onMove);
@@ -182,7 +347,6 @@ export function Sidebar() {
         else if (t.root) s.reparentFolder(name, null);
         s.setDraggingFolder(null);
         s.setDragOverFolder(null);
-        s.setRootDragOver(false);
         setGhost(null);
       }
     }
@@ -193,140 +357,6 @@ export function Sidebar() {
   function handleRowClick(e: React.MouseEvent, id: string) {
     s.rowClick(id, { meta: e.metaKey || e.ctrlKey, shift: e.shiftKey }, visibleOrder);
     closeIfMobile();
-  }
-
-  function NoteRow({ note }: { note: Note }) {
-    const [hover, setHover] = useState(false);
-    const isRenaming = s.renaming === note.id;
-    if (isRenaming) {
-      return (
-        <div style={{ padding: "2px 9px" }}>
-          <input
-            autoFocus
-            value={note.title}
-            onChange={(e) => s.onRenameLive(note.id, e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              else if (e.key === "Escape") s.stopRename();
-            }}
-            onBlur={() => s.stopRename()}
-            style={{
-              width: "100%",
-              border: "1px solid var(--accent, #b0623b)",
-              background: "var(--input)",
-              borderRadius: 6,
-              padding: "4px 8px",
-              fontSize: 13,
-              color: "var(--ink)",
-            }}
-          />
-        </div>
-      );
-    }
-    return (
-      <div
-        onMouseDown={(e) => startNoteDrag(e, note)}
-        onClick={(e) => handleRowClick(e, note.id)}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          s.onNoteContext(note.id, e.clientX, e.clientY);
-        }}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: isMobile ? "11px 9px" : "6px 9px",
-          minHeight: isMobile ? 40 : undefined,
-          borderRadius: 6,
-          cursor: "pointer",
-          fontSize: 13,
-          fontWeight: note.id === curId ? 600 : 400,
-          color: note.id === curId ? "var(--ink)" : "var(--text)",
-          // Without this, holding and moving the mouse to drag a row
-          // highlights its text instead of dragging it.
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          background: s.selectedIds.includes(note.id)
-            ? "var(--active)"
-            : note.id === curId
-              ? "var(--ribbon)"
-              : hover
-                ? "var(--ribbon)"
-                : "transparent",
-        }}
-      >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{note.title || "Untitled"}</span>
-      </div>
-    );
-  }
-
-  function FolderHeader({ name, depth, count, open }: { name: string; depth: number; count: number; open: boolean }) {
-    const [hover, setHover] = useState(false);
-    const isRenaming = s.folderRenaming === name;
-    if (isRenaming) {
-      return (
-        <div style={{ padding: `2px ${9 + depth * 13}px 2px ${8 + depth * 13}px` }}>
-          <input
-            autoFocus
-            onFocus={(e) => e.target.select()}
-            value={s.folderRenameDraft}
-            onChange={(e) => s.onFolderRenameDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") s.commitFolderRename(name, s.folderRenameDraft);
-              else if (e.key === "Escape") s.startFolderRename(name);
-            }}
-            onBlur={() => s.commitFolderRename(name, s.folderRenameDraft)}
-            style={{
-              width: "100%",
-              border: "1px solid var(--accent, #b0623b)",
-              background: "var(--input)",
-              borderRadius: 6,
-              padding: "4px 8px",
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: ".04em",
-              textTransform: "uppercase",
-              color: "var(--ink)",
-            }}
-          />
-        </div>
-      );
-    }
-    return (
-      <div
-        onMouseDown={(e) => startFolderDrag(e, name)}
-        onClick={() => s.toggleFolder(name)}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          s.onFolderContext(name, e.clientX, e.clientY);
-        }}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: `${isMobile ? 11 : 6}px ${9 + depth * 13}px ${isMobile ? 11 : 6}px ${8 + depth * 13}px`,
-          minHeight: isMobile ? 40 : undefined,
-          borderRadius: 6,
-          cursor: "pointer",
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: ".04em",
-          textTransform: "uppercase",
-          color: "var(--text)",
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          background: hover ? "var(--ribbon)" : "transparent",
-        }}
-      >
-        <ChevronRightIcon size={10} style={{ transform: open ? "rotate(90deg)" : "none", flex: "0 0 auto", transition: "transform .1s" }} />
-        <span style={{ flex: 1 }}>{name}</span>
-        <span style={{ fontSize: 10, color: "var(--faint)", fontWeight: 500 }}>{count}</span>
-      </div>
-    );
   }
 
   const hasSearchText = s.searchQuery.trim() !== "";
@@ -548,12 +578,12 @@ export function Sidebar() {
                   boxShadow: s.dragOverFolder === row.name ? `inset 0 0 0 1px ${accent}` : "none",
                 }}
               >
-                <FolderHeader name={row.name} depth={row.depth} count={row.count} open={row.open} />
+                <FolderHeader name={row.name} depth={row.depth} count={row.count} open={row.open} onDragStart={startFolderDrag} />
                 {row.open && (
                   <div>
                     {row.notes.map((n) => (
                       <div key={n.id} style={{ paddingLeft: 18 + row.depth * 13 }}>
-                        <NoteRow note={n} />
+                        <NoteRow note={n} onDragStart={startNoteDrag} onRowClick={handleRowClick} />
                       </div>
                     ))}
                   </div>
@@ -565,12 +595,10 @@ export function Sidebar() {
               style={{
                 minHeight: 24,
                 borderRadius: 8,
-                boxShadow: s.rootDragOver ? `inset 0 0 0 1px ${accent}` : "none",
-                background: s.rootDragOver ? "var(--active)" : "transparent",
               }}
             >
               {rNotes.map((n) => (
-                <NoteRow key={n.id} note={n} />
+                <NoteRow key={n.id} note={n} onDragStart={startNoteDrag} onRowClick={handleRowClick} />
               ))}
             </div>
           </div>

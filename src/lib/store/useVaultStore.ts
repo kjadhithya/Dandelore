@@ -255,7 +255,6 @@ export interface VaultStore extends VaultState {
   setDraggingId: (id: string | null) => void;
   setDraggingFolder: (name: string | null) => void;
   setDragOverFolder: (name: string | null) => void;
-  setRootDragOver: (v: boolean) => void;
 
   // journal
   prevMonth: () => void;
@@ -352,7 +351,6 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   renaming: null,
   draggingId: null,
   dragOverFolder: null,
-  rootDragOver: false,
 
   calYear: new Date(TODAY).getFullYear(),
   calMonth: new Date(TODAY).getMonth(),
@@ -1286,8 +1284,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   // ---------- drag/drop ----------
   setDraggingId: (id) => set({ draggingId: id, draggingFolder: null }),
   setDraggingFolder: (name) => set({ draggingFolder: name, draggingId: null }),
-  setDragOverFolder: (name) => set({ dragOverFolder: name, rootDragOver: false }),
-  setRootDragOver: (v) => set({ rootDragOver: v, dragOverFolder: v ? null : get().dragOverFolder }),
+  setDragOverFolder: (name) => set({ dragOverFolder: name }),
 
   // ---------- journal ----------
   prevMonth: () =>
