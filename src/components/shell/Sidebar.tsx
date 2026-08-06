@@ -105,6 +105,12 @@ export function Sidebar() {
 
   const curId = s.curId();
 
+  // TEMP-DND-DIAGNOSTIC: records which native drag events actually fire,
+  // shown on-screen (no devtools needed) — remove once resolved.
+  function logDrag(label: string) {
+    useVaultStore.setState((st) => ({ dragDebugLog: [...st.dragDebugLog.slice(-6), `${new Date().toLocaleTimeString()} ${label}`] }));
+  }
+
   function handleRowClick(e: React.MouseEvent, id: string) {
     s.rowClick(id, { meta: e.metaKey || e.ctrlKey, shift: e.shiftKey }, visibleOrder);
     closeIfMobile();
@@ -142,6 +148,7 @@ export function Sidebar() {
       <div
         draggable
         onDragStart={(e) => {
+          logDrag(`dragstart note "${note.title || "Untitled"}"`);
           // Some browsers (Firefox in particular) won't initiate a native
           // drag at all without dataTransfer.setData being called, and
           // without effectAllowed the drop target shows a "not allowed"
@@ -151,6 +158,7 @@ export function Sidebar() {
           s.setDraggingId(note.id);
         }}
         onDragEnd={() => {
+          logDrag("dragend");
           // A drop on a valid target already clears this via
           // moveNoteTo/reparentFolder; this covers a cancelled drag
           // (dropped somewhere with no drop handler, or Escape) so the
@@ -233,24 +241,29 @@ export function Sidebar() {
       <div
         draggable
         onDragStart={(e) => {
+          logDrag(`dragstart folder "${name}"`);
           e.dataTransfer.setData("text/plain", name);
           e.dataTransfer.effectAllowed = "move";
           s.setDraggingFolder(name);
         }}
         onDragEnd={() => {
+          logDrag("dragend");
           s.setDraggingId(null);
           s.setDragOverFolder(null);
           s.setRootDragOver(false);
         }}
         onDragOver={(e) => {
+          logDrag(`dragover folder "${name}"`);
           e.preventDefault();
           e.dataTransfer.dropEffect = "move";
           s.setDragOverFolder(name);
         }}
         onDragLeave={() => {
+          logDrag(`dragleave folder "${name}"`);
           if (s.dragOverFolder === name) s.setDragOverFolder(null);
         }}
         onDrop={(e) => {
+          logDrag(`drop on folder "${name}"`);
           e.preventDefault();
           e.stopPropagation();
           if (s.draggingFolder) s.reparentFolder(s.draggingFolder, name);
@@ -514,12 +527,17 @@ export function Sidebar() {
             ))}
             <div
               onDragOver={(e) => {
+                logDrag("dragover root");
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";
                 s.setRootDragOver(true);
               }}
-              onDragLeave={() => s.setRootDragOver(false)}
+              onDragLeave={() => {
+                logDrag("dragleave root");
+                s.setRootDragOver(false);
+              }}
               onDrop={(e) => {
+                logDrag("drop on root");
                 e.preventDefault();
                 s.setRootDragOver(false);
                 if (s.draggingFolder) s.reparentFolder(s.draggingFolder, null);
@@ -566,6 +584,27 @@ export function Sidebar() {
         </span>
       </div>
       )}
+      {/* TEMP-DND-DIAGNOSTIC: remove once drag-and-drop is confirmed working */}
+      <div
+        style={{
+          position: "fixed",
+          left: 8,
+          bottom: 8,
+          zIndex: 999,
+          maxWidth: 320,
+          background: "rgba(0,0,0,.85)",
+          color: "#fff",
+          fontFamily: "monospace",
+          fontSize: 11,
+          lineHeight: 1.5,
+          padding: "8px 10px",
+          borderRadius: 8,
+          pointerEvents: "none",
+        }}
+      >
+        <div style={{ fontWeight: 700, marginBottom: 2 }}>Drag debug (try dragging a note now)</div>
+        {s.dragDebugLog.length === 0 ? <div>No drag events fired yet.</div> : s.dragDebugLog.map((line, i) => <div key={i}>{line}</div>)}
+      </div>
     </>
   );
 }
