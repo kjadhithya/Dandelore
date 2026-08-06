@@ -29,6 +29,7 @@ export function CommandPalette() {
     { glyph: "☼", label: "Today's daily note", run: () => s.openOrCreate(new Date().toISOString().slice(0, 10), "Journal") },
     { glyph: "⚙", label: "Settings", run: () => s.openSettings() },
     { glyph: "⇊", label: "Import Markdown", run: () => document.getElementById("importInput")?.click() },
+    { glyph: "⇈", label: "Export vault (Markdown)", run: () => s.exportMarkdownZip() },
     { glyph: "⇈", label: "Export vault (JSON)", run: () => s.exportJson() },
     { glyph: "⎘", label: "Attach file", run: () => document.getElementById("attachInput")?.click() },
     { glyph: "👁", label: "Toggle reading view", run: () => s.toggleReading() },

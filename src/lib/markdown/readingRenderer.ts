@@ -79,6 +79,7 @@ function inline(s: string, atts: Record<string, Attachment>, hasNote: TitleResol
   s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a class="exlink" data-ext="1" href="$2" target="_blank">$1</a>');
   s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   s = s.replace(/(^|[^*\w])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+  s = s.replace(/&lt;u&gt;([\s\S]*?)&lt;\/u&gt;/g, "<u>$1</u>");
   s = s.replace(
     /(^|\s)#([a-z0-9][\w/-]*)/gi,
     '$1<span data-tag="$2" style="color:' + C.accentText + ';cursor:pointer;">#$2</span>',
@@ -163,7 +164,7 @@ export function md2html(
       out +=
         '<pre style="background:' +
         C.code +
-        ';border:1px solid var(--border);border-radius:8px;padding:12px 14px;overflow:auto;font-family:IBM Plex Mono,monospace;font-size:12.5px;line-height:1.6;color:var(--text);margin:0;">' +
+        ';border:1px solid var(--border);border-radius:8px;padding:12px 14px;overflow:auto;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;font-family:IBM Plex Mono,monospace;font-size:12.5px;line-height:1.6;color:var(--text);margin:0;">' +
         esc(buf.join("\n")) +
         "</pre>";
       continue;

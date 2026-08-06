@@ -221,6 +221,12 @@ export function SettingsModal() {
             Import vault (JSON)…
           </div>
           <div
+            onClick={() => s.exportMarkdownZip()}
+            style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 9, padding: isMobile ? 12 : 10 }}
+          >
+            Export vault (Markdown)
+          </div>
+          <div
             onClick={() => s.exportJson()}
             style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, color: accentButtonText, background: accent, borderRadius: 9, padding: isMobile ? 12 : 10 }}
           >
@@ -363,6 +369,12 @@ export function SettingsModal() {
                     style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, fontWeight: 500, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 9, padding: 12 }}
                   >
                     Import vault (JSON)…
+                  </div>
+                  <div
+                    onClick={() => s.exportMarkdownZip()}
+                    style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, fontWeight: 500, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 9, padding: 12 }}
+                  >
+                    Export vault (Markdown)
                   </div>
                   <div
                     onClick={() => s.exportJson()}

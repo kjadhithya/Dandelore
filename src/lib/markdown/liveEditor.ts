@@ -43,6 +43,7 @@ export function inlineLive(s: string, hasNote: TitleResolver): string {
   );
   s = s.replace(/\*\*([^*]+)\*\*/g, '<span class="m">**</span><strong>$1</strong><span class="m">**</span>');
   s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<span class="m">*</span><em>$2</em><span class="m">*</span>');
+  s = s.replace(/&lt;u&gt;([\s\S]*?)&lt;\/u&gt;/g, '<span class="m">&lt;u&gt;</span><u>$1</u><span class="m">&lt;/u&gt;</span>');
   s = s.replace(/(^|\s)#([a-z0-9][\w/-]*)/gi, '$1<span class="tag" data-tag="$2">#$2</span>');
   return s;
 }

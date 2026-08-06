@@ -12,6 +12,7 @@ import type {
 import { TODAY } from "@/lib/seed";
 import { normalizeLineEndings } from "@/lib/text";
 import { noteToMarkdownFile, parseMarkdownFile } from "@/lib/markdown/frontmatter";
+import JSZip from "jszip";
 
 function newId(): string {
   return "n" + Date.now() + Math.random().toString(36).slice(2, 6);
@@ -229,6 +230,7 @@ export interface VaultStore extends VaultState {
 
   // import/export/attach
   exportJson: () => void;
+  exportMarkdownZip: () => Promise<void>;
   exportNote: () => void;
   importMarkdown: (files: { name: string; text: string }[]) => void;
   importJson: (data: unknown) => { ok: boolean; error?: string };
@@ -1125,6 +1127,38 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     downloadFile("my-vault.json", JSON.stringify(data, null, 2), "application/json");
     set({ settingsOpen: false, noteMenuOpen: false });
   },
+  // Each note becomes its own .md file with the same frontmatter exportNote()
+  // uses, laid out in a folder tree (walking folderParents for nested
+  // folders) so the zip drops straight into Obsidian (or any other
+  // folder-of-markdown-files app) as-is, unlike the JSON export.
+  exportMarkdownZip: async () => {
+    const s = get();
+    const zip = new JSZip();
+    const folderPath = (folder: string): string => {
+      if (!folder) return "";
+      const parts: string[] = [folder];
+      let p = s.folderParents[folder];
+      while (p) {
+        parts.unshift(p);
+        p = s.folderParents[p];
+      }
+      return parts.join("/");
+    };
+    const usedNames = new Map<string, number>();
+    s.notes.forEach((n) => {
+      const dir = folderPath(n.folder);
+      const base = (n.title || "Untitled").replace(/[\\/:*?"<>|]/g, "-").trim() || "Untitled";
+      const key = dir + "/" + base;
+      const count = usedNames.get(key) || 0;
+      usedNames.set(key, count + 1);
+      const filename = base + (count ? ` ${count + 1}` : "") + ".md";
+      const path = dir ? `${dir}/${filename}` : filename;
+      zip.file(path, noteToMarkdownFile(n));
+    });
+    const blob = await zip.generateAsync({ type: "blob" });
+    downloadBlob("vault-markdown.zip", blob);
+    set({ settingsOpen: false, noteMenuOpen: false });
+  },
   exportNote: () => {
     const n = get().cur();
     if (n) downloadFile((n.title || "note") + ".md", noteToMarkdownFile(n), "text/markdown");
@@ -1333,8 +1367,11 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
 }));
 
 export function downloadFile(name: string, text: string, type?: string) {
+  downloadBlob(name, new Blob([text], { type: type || "text/plain" }));
+}
+
+export function downloadBlob(name: string, blob: Blob) {
   try {
-    const blob = new Blob([text], { type: type || "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

@@ -67,6 +67,7 @@ export const MD_HELP_GROUPS = [
       { label: "Heading", syntax: "# H1   ## H2   ### H3" },
       { label: "Bold", syntax: "**bold**" },
       { label: "Italic", syntax: "*italic*" },
+      { label: "Underline", syntax: "<u>underline</u>" },
       { label: "Divider", syntax: "---" },
     ],
   },

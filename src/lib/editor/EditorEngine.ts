@@ -199,6 +199,36 @@ export class EditorEngine {
     sel.addRange(rng);
   }
 
+  /** Column -> DOM (node, offset), the inverse walk used by setCol — split
+   * out so selectRange can resolve two boundaries without duplicating the
+   * tree-walk each time. */
+  posAt(line: HTMLElement, col: number): { node: Node; offset: number } {
+    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+    let c = 0;
+    let tn: Node | null;
+    let last: Node | null = null;
+    while ((tn = walker.nextNode())) {
+      last = tn;
+      const len = (tn as Text).data.length;
+      if (c + len >= col) return { node: tn, offset: Math.max(0, col - c) };
+      c += len;
+    }
+    if (last) return { node: last, offset: (last as Text).data.length };
+    return { node: line, offset: 0 };
+  }
+
+  selectRange(line: HTMLElement, start: number, end: number) {
+    const sel = window.getSelection();
+    if (!sel) return;
+    const a = this.posAt(line, start);
+    const b = this.posAt(line, end);
+    const rng = document.createRange();
+    rng.setStart(a.node, a.offset);
+    rng.setEnd(b.node, b.offset);
+    sel.removeAllRanges();
+    sel.addRange(rng);
+  }
+
   setActive(line: HTMLDivElement | null) {
     if (this.active && this.active !== line) this.active.classList.remove("active");
     if (line) line.classList.add("active");
@@ -357,6 +387,112 @@ export class EditorEngine {
     this.commit();
   }
 
+  /** Same-line selection bounds under the caret, or null if the selection
+   * spans multiple lines / isn't inside the editor — the shared lookup
+   * behind every wrap/toggle key handler below. */
+  singleLineSelection(): { line: HTMLDivElement; lo: number; hi: number } | null {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return null;
+    const rng = sel.getRangeAt(0);
+    if (!rng.startContainer || !this.ed!.contains(rng.startContainer)) return null;
+    let l1: Node | null = rng.startContainer;
+    while (l1 && l1.parentNode !== this.ed) l1 = l1.parentNode;
+    let l2: Node | null = rng.endContainer;
+    while (l2 && l2.parentNode !== this.ed) l2 = l2.parentNode;
+    if (l1 !== l2 || !l1) return null;
+    const line = l1 as HTMLDivElement;
+    const a = this.colOf(line, rng.startContainer, rng.startOffset);
+    const b = this.colOf(line, rng.endContainer, rng.endOffset);
+    return { line, lo: Math.min(a, b), hi: Math.max(a, b) };
+  }
+
+  /** Cmd+B / Cmd+I / Cmd+U — wraps the selection in the given delimiter
+   * pair, or un-wraps it if it's already wrapped in exactly that pair
+   * (so re-pressing the shortcut toggles the formatting back off). With
+   * no selection, opens/closes an empty pair with the caret left inside. */
+  wrapSelectionWithDelim(open: string, close: string = open) {
+    const s = this.singleLineSelection();
+    if (s) {
+      const { line, lo, hi } = s;
+      const text = line.textContent || "";
+      const ol = open.length,
+        cl = close.length;
+      if (text.slice(lo - ol, lo) === open && text.slice(hi, hi + cl) === close) {
+        const nt = text.slice(0, lo - ol) + text.slice(lo, hi) + text.slice(hi + cl);
+        this.updateLine(line, nt);
+        this.setActive(line);
+        this.selectRange(line, lo - ol, hi - ol);
+        this.commit();
+        return;
+      }
+      const nt = text.slice(0, lo) + open + text.slice(lo, hi) + close + text.slice(hi);
+      this.updateLine(line, nt);
+      this.setActive(line);
+      this.selectRange(line, lo + ol, hi + ol);
+      this.commit();
+      return;
+    }
+    const ci = this.caretInfo();
+    if (!ci) return;
+    const text = ci.line.textContent || "";
+    const ol = open.length,
+      cl = close.length;
+    if (text.slice(ci.col - ol, ci.col) === open && text.slice(ci.col, ci.col + cl) === close) {
+      const nt = text.slice(0, ci.col - ol) + text.slice(ci.col + cl);
+      this.updateLine(ci.line, nt);
+      this.setActive(ci.line);
+      this.setCol(ci.line, ci.col - ol);
+      this.commit();
+      return;
+    }
+    this.insertText(ci.line, ci.col, open + close, ci.col + ol);
+  }
+
+  /** Shared by the `[` and `*` keydown handlers — wraps a selection (or,
+   * with no selection, auto-closes a pair with the caret in between);
+   * pressing the same key again immediately upgrades a single wrap into
+   * a double one (`[text]` -> `[[text]]`, `*text*` -> `**text**`), which
+   * is how a single bracket press becomes a wikilink and a single
+   * asterisk becomes bold. */
+  handleWrapKey(e: KeyboardEvent, openCh: string, closeCh: string, onUpgrade?: () => void) {
+    const s = this.singleLineSelection();
+    if (s) {
+      e.preventDefault();
+      const { line, lo, hi } = s;
+      const text = line.textContent || "";
+      const alreadySingle =
+        text[lo - 1] === openCh && text[lo - 2] !== openCh && text[hi] === closeCh && text[hi + 1] !== closeCh;
+      let nt: string;
+      if (alreadySingle) {
+        nt = text.slice(0, lo - 1) + openCh + openCh + text.slice(lo, hi) + closeCh + closeCh + text.slice(hi + 1);
+      } else {
+        nt = text.slice(0, lo) + openCh + text.slice(lo, hi) + closeCh + text.slice(hi);
+      }
+      this.updateLine(line, nt);
+      this.setActive(line);
+      this.selectRange(line, lo + 1, hi + 1);
+      this.commit();
+      if (onUpgrade) onUpgrade();
+      return;
+    }
+    const ci = this.caretInfo();
+    if (!ci) return;
+    e.preventDefault();
+    const text = ci.line.textContent || "";
+    const betweenLoneClosed =
+      text[ci.col - 1] === openCh && text[ci.col - 2] !== openCh && text[ci.col] === closeCh && text[ci.col + 1] !== closeCh;
+    if (betweenLoneClosed) {
+      const nt = text.slice(0, ci.col - 1) + openCh + openCh + closeCh + closeCh + text.slice(ci.col + 1);
+      this.updateLine(ci.line, nt);
+      this.setActive(ci.line);
+      this.setCol(ci.line, ci.col + 1);
+      this.commit();
+      if (onUpgrade) onUpgrade();
+      return;
+    }
+    this.insertText(ci.line, ci.col, openCh + closeCh, ci.col + 1);
+  }
+
   onKeydown(e: KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z")) {
       e.preventDefault();
@@ -367,6 +503,21 @@ export class EditorEngine {
     if ((e.metaKey || e.ctrlKey) && (e.key === "y" || e.key === "Y")) {
       e.preventDefault();
       this.deps.onRedo();
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && (e.key === "b" || e.key === "B")) {
+      e.preventDefault();
+      this.wrapSelectionWithDelim("**");
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && (e.key === "i" || e.key === "I")) {
+      e.preventDefault();
+      this.wrapSelectionWithDelim("*");
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && (e.key === "u" || e.key === "U")) {
+      e.preventDefault();
+      this.wrapSelectionWithDelim("<u>", "</u>");
       return;
     }
     if (this.popup) {
@@ -438,39 +589,20 @@ export class EditorEngine {
       }
     }
     if (e.key === "[") {
-      const sel = window.getSelection();
+      this.handleWrapKey(e, "[", "]", () => setTimeout(() => this.detectLink(), 0));
+      return;
+    }
+    if (e.key === "*") {
+      this.handleWrapKey(e, "*", "*");
+      return;
+    }
+    if (e.key === "]") {
       const ci = this.caretInfo();
-      if (!ci) return;
-      if (sel && !sel.isCollapsed) {
-        const rng = sel.getRangeAt(0);
-        if (rng.startContainer && this.ed!.contains(rng.startContainer)) {
-          let l1: Node | null = rng.startContainer;
-          while (l1 && l1.parentNode !== this.ed) l1 = l1.parentNode;
-          let l2: Node | null = rng.endContainer;
-          while (l2 && l2.parentNode !== this.ed) l2 = l2.parentNode;
-          if (l1 === l2 && l1) {
-            e.preventDefault();
-            const l1el = l1 as HTMLDivElement;
-            const a = this.colOf(l1el, rng.startContainer, rng.startOffset);
-            const b = this.colOf(l1el, rng.endContainer, rng.endOffset);
-            const lo = Math.min(a, b),
-              hi = Math.max(a, b);
-            const text = l1el.textContent || "";
-            const nt = text.slice(0, lo) + "[[" + text.slice(lo, hi) + "]]" + text.slice(hi);
-            this.updateLine(l1el, nt);
-            this.setActive(l1el);
-            this.setCol(l1el, hi + 4);
-            this.commit();
-            setTimeout(() => this.detectLink(), 0);
-            return;
-          }
-        }
-      } else {
+      if (ci) {
         const text = ci.line.textContent || "";
-        if (text[ci.col - 1] === "[") {
+        if (text[ci.col] === "]") {
           e.preventDefault();
-          this.insertText(ci.line, ci.col, "[]]", ci.col + 1);
-          setTimeout(() => this.detectLink(), 0);
+          this.setCol(ci.line, ci.col + 1);
           return;
         }
       }
@@ -710,7 +842,7 @@ export class EditorEngine {
     wrap.style.cssText = "position:relative;margin:12px 0;";
     const pre = document.createElement("pre");
     pre.textContent = code || " ";
-    pre.style.cssText = `background:${C_CODE_CSS};border:1px solid var(--border);border-radius:8px;padding:14px 16px;overflow:auto;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;line-height:1.6;color:var(--text);margin:0;cursor:text;white-space:pre;`;
+    pre.style.cssText = `background:${C_CODE_CSS};border:1px solid var(--border);border-radius:8px;padding:14px 44px 14px 16px;overflow:auto;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;line-height:1.6;color:var(--text);margin:0;cursor:text;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;`;
     pre.addEventListener("mousedown", (e) => {
       e.preventDefault();
       this.enterBlock(els[1] || els[0]);
