@@ -1,5 +1,6 @@
 import { renderLineLive, sepLine, inlineLive } from "@/lib/markdown/liveEditor";
 import type { TitleResolver } from "@/lib/markdown/liveEditor";
+import { htmlToMarkdown } from "@/lib/markdown/htmlToMarkdown";
 
 export interface LinkSuggestion {
   label: string;
@@ -225,13 +226,29 @@ export class EditorEngine {
         if (f) files.push(f);
       }
     }
-    // Only intercept when the clipboard actually carries file data (an
-    // image copied from elsewhere, a screenshot, etc). Plain text — including
-    // a pasted URL — falls through to the normal insertFromPaste input event,
-    // which already renders bare links via inlineLive.
     if (files.length) {
       e.preventDefault();
       this.deps.onPasteFiles(files);
+      return;
+    }
+    // A source with real markup (a webpage, Google Doc, Notion, Word) puts
+    // a text/html entry on the clipboard alongside the plain-text one. The
+    // browser's default paste would insert that raw HTML into the
+    // contentEditable, and serialize() reads it back out via .textContent,
+    // which throws away every paragraph/line break — a multi-link paste
+    // collapses into one run-on line. Convert it to markdown ourselves and
+    // insert that instead. Plain text with no HTML entry (a copied line
+    // from a text editor, a terminal, etc.) has nothing to convert and
+    // falls through to the default insertFromPaste, which — combined with
+    // white-space:pre-wrap — already preserves its line breaks correctly.
+    const html = e.clipboardData?.getData("text/html");
+    if (html && html.trim()) {
+      const ci = this.caretInfo();
+      if (ci) {
+        e.preventDefault();
+        const md = htmlToMarkdown(html);
+        this.insertMultilineText(ci, md);
+      }
     }
   }
 
@@ -292,6 +309,37 @@ export class EditorEngine {
     this.updateLine(line, nt);
     this.setActive(line);
     this.setCol(line, caretAfter);
+    this.commit();
+  }
+
+  /** Inserts (possibly multi-line) text at the caret, splitting the current
+   * line and creating one .ln div per extra line — used for pasted content
+   * that's already been converted to clean markdown, so a paragraph-y
+   * paste lands as several real lines instead of one run-on line. */
+  insertMultilineText(ci: { line: HTMLDivElement; col: number }, text: string) {
+    const lines = text.split("\n");
+    if (lines.length === 1) {
+      this.insertText(ci.line, ci.col, lines[0], ci.col + lines[0].length);
+      return;
+    }
+    const line = ci.line;
+    const full = line.textContent || "";
+    const before = full.slice(0, ci.col);
+    const after = full.slice(ci.col);
+    this.updateLine(line, before + lines[0]);
+    let anchor: HTMLDivElement = line;
+    for (let i = 1; i < lines.length; i++) {
+      const isLast = i === lines.length - 1;
+      const nl = this.makeLine(isLast ? lines[i] + after : lines[i]);
+      if (anchor.nextSibling) this.ed!.insertBefore(nl, anchor.nextSibling);
+      else this.ed!.appendChild(nl);
+      anchor = nl;
+      if (isLast) {
+        this.setActive(nl);
+        this.setCol(nl, lines[i].length);
+      }
+    }
+    this.decorateBlocks();
     this.commit();
   }
 
