@@ -215,6 +215,12 @@ export function SettingsModal() {
             Import Markdown…
           </div>
           <div
+            onClick={() => document.getElementById("importJsonInput")?.click()}
+            style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 9, padding: isMobile ? 12 : 10 }}
+          >
+            Import vault (JSON)…
+          </div>
+          <div
             onClick={() => s.exportJson()}
             style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, color: accentButtonText, background: accent, borderRadius: 9, padding: isMobile ? 12 : 10 }}
           >
@@ -351,6 +357,12 @@ export function SettingsModal() {
                     style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, fontWeight: 500, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 9, padding: 12 }}
                   >
                     Import Markdown…
+                  </div>
+                  <div
+                    onClick={() => document.getElementById("importJsonInput")?.click()}
+                    style={{ cursor: "pointer", flex: 1, textAlign: "center", fontSize: 13, fontWeight: 500, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 9, padding: 12 }}
+                  >
+                    Import vault (JSON)…
                   </div>
                   <div
                     onClick={() => s.exportJson()}

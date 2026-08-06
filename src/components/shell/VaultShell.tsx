@@ -227,6 +227,30 @@ export function VaultShell() {
         }}
       />
       <input
+        id="importJsonInput"
+        type="file"
+        accept=".json,application/json"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+          const r = new FileReader();
+          r.onload = () => {
+            let parsed: unknown;
+            try {
+              parsed = JSON.parse(String(r.result));
+            } catch {
+              alert("That file isn't valid JSON.");
+              return;
+            }
+            const res = s.importJson(parsed);
+            if (!res.ok) alert(res.error || "Import failed.");
+          };
+          r.readAsText(file);
+        }}
+      />
+      <input
         id="attachInput"
         ref={attachInputRef}
         type="file"

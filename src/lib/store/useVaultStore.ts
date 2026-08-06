@@ -11,6 +11,7 @@ import type {
 } from "@/types/vault";
 import { TODAY } from "@/lib/seed";
 import { normalizeLineEndings } from "@/lib/text";
+import { noteToMarkdownFile, parseMarkdownFile } from "@/lib/markdown/frontmatter";
 
 function newId(): string {
   return "n" + Date.now() + Math.random().toString(36).slice(2, 6);
@@ -229,6 +230,7 @@ export interface VaultStore extends VaultState {
   exportJson: () => void;
   exportNote: () => void;
   importMarkdown: (files: { name: string; text: string }[]) => void;
+  importJson: (data: unknown) => { ok: boolean; error?: string };
   attachFiles: (
     files: { name: string; type: string; dataUrl: string }[],
   ) => void;
@@ -1117,24 +1119,61 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   },
   exportNote: () => {
     const n = get().cur();
-    if (n) downloadFile((n.title || "note") + ".md", n.content, "text/markdown");
+    if (n) downloadFile((n.title || "note") + ".md", noteToMarkdownFile(n), "text/markdown");
     set({ noteMenuOpen: false });
   },
   importMarkdown: (files) => {
-    const created: Note[] = files.map((f) => ({
-      id: newId(),
-      title: f.name.replace(/\.(md|markdown|txt)$/i, ""),
-      folder: "Notes",
-      date: TODAY,
-      modified: new Date().toISOString(),
-      category: "",
-      tags: [],
-      attachments: {},
-      content: normalizeLineEndings(f.text),
-    }));
+    const created: Note[] = files.map((f) => {
+      const parsed = parseMarkdownFile(normalizeLineEndings(f.text));
+      return {
+        id: newId(),
+        title: f.name.replace(/\.(md|markdown|txt)$/i, ""),
+        folder: parsed.folder ?? "Notes",
+        date: parsed.date ?? TODAY,
+        modified: new Date().toISOString(),
+        category: parsed.category ?? "",
+        tags: parsed.tags ?? [],
+        attachments: {},
+        content: parsed.content,
+        bookmarked: parsed.bookmarked,
+        daily: parsed.daily,
+      };
+    });
     if (!created.length) return;
-    set((s) => ({ notes: [...s.notes, ...created], settingsOpen: false }));
+    // A note can carry a folder/category this vault doesn't have yet (e.g.
+    // re-importing a note exported from a different vault) — register
+    // those too, or the note would exist but never show up in the sidebar/
+    // categories view under the name its own frontmatter claims.
+    const newFolders = [...new Set(created.map((n) => n.folder).filter(Boolean))];
+    const newCats = [...new Set(created.map((n) => n.category).filter(Boolean))];
+    set((s) => ({
+      notes: [...s.notes, ...created],
+      folderList: [...new Set([...s.folderList, ...newFolders])],
+      categories: [...new Set([...s.categories, ...newCats])],
+      settingsOpen: false,
+    }));
     get().navigate(created[0].id);
+  },
+  // Restores a vault previously exported via exportJson — merges by note
+  // id (a note that already exists locally is overwritten with the
+  // imported version, a new one is added), so re-importing the same
+  // backup is idempotent instead of duplicating everything each time.
+  importJson: (data) => {
+    if (!data || typeof data !== "object" || !Array.isArray((data as { notes?: unknown }).notes)) {
+      return { ok: false, error: "That file doesn't look like a vault export (missing a notes array)." };
+    }
+    const parsed = data as { notes: Note[]; folders?: string[]; categories?: string[] };
+    set((s) => {
+      const byId = new Map(s.notes.map((n) => [n.id, n]));
+      parsed.notes.forEach((n) => byId.set(n.id, n));
+      return {
+        notes: [...byId.values()],
+        folderList: [...new Set([...s.folderList, ...(parsed.folders || [])])],
+        categories: [...new Set([...s.categories, ...(parsed.categories || [])])],
+        settingsOpen: false,
+      };
+    });
+    return { ok: true };
   },
   attachFiles: (files) => {
     const id = get().curId();
