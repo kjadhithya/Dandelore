@@ -177,6 +177,12 @@ export function Sidebar() {
           fontSize: 13,
           fontWeight: note.id === curId ? 600 : 400,
           color: note.id === curId ? "var(--ink)" : "var(--text)",
+          // Without this, Chrome can interpret a click-and-drag starting on
+          // the title text as a text-selection gesture instead of a native
+          // element drag, so dragstart never fires — looks like drag and
+          // drop does nothing at all.
+          userSelect: "none",
+          WebkitUserSelect: "none",
           background: s.selectedIds.includes(note.id)
             ? "var(--active)"
             : note.id === curId
@@ -270,6 +276,8 @@ export function Sidebar() {
           letterSpacing: ".04em",
           textTransform: "uppercase",
           color: "var(--text)",
+          userSelect: "none",
+          WebkitUserSelect: "none",
           background: isDragOver ? "var(--active)" : hover ? "var(--ribbon)" : "transparent",
           boxShadow: isDragOver ? `inset 0 0 0 1px ${accent}` : "none",
         }}
