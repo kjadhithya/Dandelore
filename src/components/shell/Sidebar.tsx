@@ -265,12 +265,12 @@ export function Sidebar() {
   function FolderHeader({ name, depth, count, open }: { name: string; depth: number; count: number; open: boolean }) {
     const [hover, setHover] = useState(false);
     const isRenaming = s.folderRenaming === name;
-    const isDragOver = s.dragOverFolder === name;
     if (isRenaming) {
       return (
         <div style={{ padding: `2px ${9 + depth * 13}px 2px ${8 + depth * 13}px` }}>
           <input
             autoFocus
+            onFocus={(e) => e.target.select()}
             value={s.folderRenameDraft}
             onChange={(e) => s.onFolderRenameDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -296,7 +296,6 @@ export function Sidebar() {
     }
     return (
       <div
-        data-drop-folder={name}
         onMouseDown={(e) => startFolderDrag(e, name)}
         onClick={() => s.toggleFolder(name)}
         onContextMenu={(e) => {
@@ -320,8 +319,7 @@ export function Sidebar() {
           color: "var(--text)",
           userSelect: "none",
           WebkitUserSelect: "none",
-          background: isDragOver ? "var(--active)" : hover ? "var(--ribbon)" : "transparent",
-          boxShadow: isDragOver ? `inset 0 0 0 1px ${accent}` : "none",
+          background: hover ? "var(--ribbon)" : "transparent",
         }}
       >
         <ChevronRightIcon size={10} style={{ transform: open ? "rotate(90deg)" : "none", flex: "0 0 auto", transition: "transform .1s" }} />
@@ -541,7 +539,15 @@ export function Sidebar() {
               </div>
             )}
             {folderRows.map((row) => (
-              <div key={row.name}>
+              <div
+                key={row.name}
+                data-drop-folder={row.name}
+                style={{
+                  borderRadius: 6,
+                  background: s.dragOverFolder === row.name ? "var(--active)" : "transparent",
+                  boxShadow: s.dragOverFolder === row.name ? `inset 0 0 0 1px ${accent}` : "none",
+                }}
+              >
                 <FolderHeader name={row.name} depth={row.depth} count={row.count} open={row.open} />
                 {row.open && (
                   <div>

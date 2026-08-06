@@ -760,7 +760,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     }),
   toggleReveal: () => set((s) => ({ autoReveal: !s.autoReveal })),
   newFolder: () => {
-    let base = "New Folder",
+    let base = "Untitled",
       name = base,
       i = 2;
     while (get().folderList.includes(name)) {
