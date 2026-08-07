@@ -104,6 +104,11 @@ function NoteRow({
   const isMobile = useIsMobile();
   const curId = s.curId();
   const [hover, setHover] = useState(false);
+  // While something is being dragged, the cursor still crosses rows and
+  // fires mouseenter/mouseleave same as always — but the row-level hover
+  // tint underneath the whole-folder drop highlight reads as a second,
+  // conflicting highlight instead of the one deliberate "drop here" cue.
+  const dragging = !!s.draggingId || !!s.draggingFolder;
   const isRenaming = s.renaming === note.id;
   if (isRenaming) {
     return (
@@ -160,7 +165,7 @@ function NoteRow({
           ? "var(--active)"
           : note.id === curId
             ? "var(--ribbon)"
-            : hover
+            : hover && !dragging
               ? "var(--ribbon)"
               : "transparent",
       }}
@@ -186,6 +191,7 @@ function FolderHeader({
   const s = useVaultStore();
   const isMobile = useIsMobile();
   const [hover, setHover] = useState(false);
+  const dragging = !!s.draggingId || !!s.draggingFolder;
   const isRenaming = s.folderRenaming === name;
   if (isRenaming) {
     return (
@@ -241,7 +247,7 @@ function FolderHeader({
         color: "var(--text)",
         userSelect: "none",
         WebkitUserSelect: "none",
-        background: hover ? "var(--ribbon)" : "transparent",
+        background: hover && !dragging ? "var(--ribbon)" : "transparent",
       }}
     >
       <ChevronRightIcon size={10} style={{ transform: open ? "rotate(90deg)" : "none", flex: "0 0 auto", transition: "transform .1s" }} />
