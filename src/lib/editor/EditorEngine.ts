@@ -47,6 +47,18 @@ export class EditorEngine {
   // the spurious re-check that follows a pick (e.g. the keyup after Enter)
   // without the caret having actually moved or new text being typed.
   lastPick: { line: HTMLDivElement; col: number } | null = null;
+  // Markdown markers (**, #, > , etc.) are always in the DOM — hidden at
+  // font-size:0 on an inactive line, expanded to full width once the line
+  // gains .active (see globals.css) — so activating a line reflows it
+  // wider right under the cursor. On a double-click, the first click's
+  // mouseup activates (and reflows) the line before the second click's
+  // coordinate is evaluated, so the browser ends up selecting whatever
+  // word the reflow shifted into that spot instead of the word the user
+  // actually clicked. Recording the column on the first mousedown, before
+  // any reflow, and reusing it for the whole click pair (see
+  // onEditorMouseDown/onDblClick) sidesteps that by never trusting a
+  // post-reflow coordinate for word selection.
+  lastMouseDown: { line: HTMLDivElement; col: number; x: number; y: number; t: number } | null = null;
   deps: EditorEngineDeps;
 
   constructor(deps: EditorEngineDeps) {
@@ -80,6 +92,8 @@ export class EditorEngine {
     ed.addEventListener("input", (e) => this.onInput(e as InputEvent));
     ed.addEventListener("keydown", (e) => this.onKeydown(e));
     ed.addEventListener("keyup", () => this.updateActive());
+    ed.addEventListener("mousedown", (e) => this.onEditorMouseDown(e));
+    ed.addEventListener("dblclick", (e) => this.onDblClick(e));
     ed.addEventListener("mouseup", () => {
       this.updateActive();
       this.detectLink();
@@ -754,6 +768,70 @@ export class EditorEngine {
       if (h) window.open(h, "_blank", "noopener,noreferrer");
       return;
     }
+  }
+
+  /** node/offset -> column, from whatever's under an arbitrary screen
+   * point — the mousedown/dblclick counterpart to colOf, which only
+   * works from an existing Range. */
+  colAtPoint(line: HTMLElement, x: number, y: number): number | null {
+    type CaretPosDoc = Document & { caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null };
+    const doc = document as CaretPosDoc;
+    if (doc.caretRangeFromPoint) {
+      const r = doc.caretRangeFromPoint(x, y);
+      if (!r) return null;
+      return this.colOf(line, r.startContainer, r.startOffset);
+    }
+    if (doc.caretPositionFromPoint) {
+      const p = doc.caretPositionFromPoint(x, y);
+      if (!p) return null;
+      return this.colOf(line, p.offsetNode, p.offset);
+    }
+    return null;
+  }
+
+  onEditorMouseDown(e: MouseEvent) {
+    const t = e.target as HTMLElement;
+    const lineEl = t.closest && (t.closest(".ln") as HTMLDivElement | null);
+    if (!lineEl || !this.ed?.contains(lineEl)) {
+      this.lastMouseDown = null;
+      return;
+    }
+    const col = this.colAtPoint(lineEl, e.clientX, e.clientY);
+    if (col === null) {
+      this.lastMouseDown = null;
+      return;
+    }
+    // A double-click's second mousedown fires after the first click's
+    // mouseup has already activated (and reflowed) the line, so its own
+    // coordinate is no longer trustworthy — keep the first click's column
+    // instead of overwriting it with one computed against the shifted text.
+    const prev = this.lastMouseDown;
+    const isSecondClick =
+      prev && prev.line === lineEl && Math.abs(prev.x - e.clientX) < 4 && Math.abs(prev.y - e.clientY) < 4 && Date.now() - prev.t < 500;
+    this.lastMouseDown = {
+      line: lineEl,
+      col: isSecondClick ? prev!.col : col,
+      x: e.clientX,
+      y: e.clientY,
+      t: Date.now(),
+    };
+  }
+
+  onDblClick(e: MouseEvent) {
+    const t = e.target as HTMLElement;
+    const lineEl = t.closest && (t.closest(".ln") as HTMLDivElement | null);
+    if (!lineEl || !this.lastMouseDown || this.lastMouseDown.line !== lineEl) return;
+    const text = lineEl.textContent || "";
+    const col = Math.max(0, Math.min(this.lastMouseDown.col, text.length));
+    const isWord = (c: string) => /[\w'’]/.test(c);
+    if (!isWord(text[col] ?? "") && !isWord(text[col - 1] ?? "")) return;
+    let lo = col,
+      hi = col;
+    while (lo > 0 && isWord(text[lo - 1])) lo--;
+    while (hi < text.length && isWord(text[hi])) hi++;
+    if (lo === hi) return;
+    e.preventDefault();
+    this.selectRange(lineEl, lo, hi);
   }
 
   maybeAutocloseFence(line: HTMLDivElement) {
