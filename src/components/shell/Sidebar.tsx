@@ -544,14 +544,14 @@ export function Sidebar() {
                         }}
                         style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 6px", cursor: "pointer", borderRadius: 6, minHeight: isMobile ? 40 : undefined }}
                       >
-                        <span style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontSize: 14, color: "var(--ink)", flex: 1 }}>{note.title}</span>
+                        <span style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontSize: 14, color: "var(--ink)", flex: 1, minWidth: 0, overflowWrap: "break-word" }}>{note.title}</span>
                       </div>
                       <div
                         onClick={() => {
                           s.navigate(note.id);
                           closeIfMobile();
                         }}
-                        style={{ cursor: "pointer", margin: "4px 6px 0 18px", background: "var(--bg)", border: "1px solid var(--border-soft)", borderRadius: 8, padding: "8px 11px", fontSize: 12, color: "var(--text)", lineHeight: 1.5 }}
+                        style={{ cursor: "pointer", margin: "4px 6px 0 18px", background: "var(--bg)", border: "1px solid var(--border-soft)", borderRadius: 8, padding: "8px 11px", fontSize: 12, color: "var(--text)", lineHeight: 1.5, overflowWrap: "break-word", wordBreak: "break-word" }}
                       >
                         {snippet}
                       </div>

@@ -113,7 +113,11 @@ export function CategoriesView() {
                           onClick={() => s.goCategory(cat.name)}
                           style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "var(--font-title, var(--font-spectral))", fontWeight: 600, fontSize: 16.5, color: "var(--ink)", overflow: "hidden" }}
                         >
-                          {cat.pinned && <PinIcon size={13} filled />}
+                          {cat.pinned && (
+                            <span style={{ display: "flex", color: "var(--accent)" }}>
+                              <PinIcon size={13} filled />
+                            </span>
+                          )}
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cat.name}</span>
                         </div>
                         <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 1 }}>

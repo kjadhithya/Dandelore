@@ -61,6 +61,14 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
     setQuery("");
   }
 
+  function commitFromQuery(raw: string) {
+    const v = raw.trim();
+    const match = v ? categories.filter((c) => c.toLowerCase().includes(v.toLowerCase())) : categories;
+    const exact = v ? categories.some((c) => c.toLowerCase() === v.toLowerCase()) : true;
+    if (!exact && v) commitNew(v);
+    else if (match.length === 1) select(match[0]);
+  }
+
   function commitNew(name: string) {
     const v = name.trim();
     if (!v) return;
@@ -84,7 +92,7 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
   }
 
   return (
-    <div ref={rootRef} style={{ position: "relative", flex: 1 }}>
+    <div ref={rootRef} style={{ position: "relative", flex: 1, minWidth: 0 }}>
       <div
         onClick={() => setOpen(true)}
         style={{
@@ -106,11 +114,23 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
             setOpen(true);
             e.target.select();
           }}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            // Many mobile virtual keyboards commit their Enter/Go/Done key as
+            // an "insertLineBreak" input event rather than a real Enter
+            // keydown, so onKeyDown below never fires there — this is the
+            // fallback that makes committing a new category work on mobile.
+            const native = e.nativeEvent as InputEvent;
+            if (native.inputType === "insertLineBreak") {
+              const v = e.target.value.replace(/\n$/, "");
+              setQuery(v);
+              commitFromQuery(v);
+              return;
+            }
+            setQuery(e.target.value);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              if (!exactMatch && q) commitNew(q);
-              else if (filtered.length === 1) select(filtered[0]);
+              commitFromQuery(q);
             } else if (e.key === "Escape") {
               setOpen(false);
               setQuery("");

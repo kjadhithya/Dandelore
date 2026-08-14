@@ -73,6 +73,13 @@ export class EditorEngine {
     ed.style.minHeight = "300px";
     ed.style.whiteSpace = "pre-wrap";
     ed.style.outline = "none";
+    // contentEditable is selectable by default, but leaving it implicit has
+    // been unreliable on some mobile WebKit/Chromium builds for dragging a
+    // touch selection-handle across more than a word — stating it
+    // explicitly is a no-op where the default already works and a cheap
+    // safety net where it doesn't.
+    ed.style.userSelect = "text";
+    (ed.style as CSSStyleDeclaration & { webkitUserSelect: string }).webkitUserSelect = "text";
     ed.contentEditable = "true";
     ed.setAttribute("spellcheck", "false");
     host.appendChild(ed);

@@ -164,7 +164,7 @@ function TagsField({
   }
 
   return (
-    <div style={{ flex: 1, position: "relative" }}>
+    <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
       <div
         style={{
           display: "flex",
@@ -190,7 +190,19 @@ function TagsField({
         ))}
         <input
           value={tagDraft}
-          onChange={(e) => onTagDraft(e.target.value)}
+          onChange={(e) => {
+            // Many mobile virtual keyboards commit their Enter/Go/Done key as
+            // an "insertLineBreak" input event rather than a real Enter
+            // keydown, so onKeyDown below never fires there — this fallback
+            // is what makes pressing Enter to add a tag work on mobile.
+            const native = e.nativeEvent as InputEvent;
+            if (native.inputType === "insertLineBreak") {
+              onTagKey("Enter", e.target.value.replace(/\n$/, ""));
+              onTagDraft("");
+              return;
+            }
+            onTagDraft(e.target.value);
+          }}
           onKeyDown={(e) => onTagKey(e.key, tagDraft)}
           onFocus={() => setFocused(true)}
           onBlur={() => setTimeout(() => setFocused(false), 120)}
