@@ -82,6 +82,7 @@ export interface VaultStore extends VaultState {
   navigate: (id: string) => void;
   openNote: (id: string) => void;
   openNoteNewTab: (id: string) => void;
+  openNoteInSplit: (id: string) => void;
   newTab: () => void;
   goBack: () => void;
   goForward: () => void;
@@ -449,6 +450,14 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       }
       const tabs = [...s.tabs, mkNoteTab(id)];
       return { tabs, active: tabs.length - 1, ctxMenu: null, noteMenuOpen: false, linkQuery: null };
+    }),
+  openNoteInSplit: (id) =>
+    set((s) => {
+      if (s.split) {
+        const tabs = [...s.split.tabs, mkNoteTab(id)];
+        return { split: { ...s.split, tabs, active: tabs.length - 1 }, lastPane: "split", ctxMenu: null };
+      }
+      return { split: { dir: "right", tabs: [mkNoteTab(id)], active: 0 }, lastPane: "split", ctxMenu: null };
     }),
   newTab: () =>
     set((s) => {

@@ -3,7 +3,7 @@ import React from "react";
 import { useVaultStore } from "@/lib/store/useVaultStore";
 
 const menuItemStyle: React.CSSProperties = { padding: "8px 13px", fontSize: 13, color: "var(--ink)", cursor: "pointer", borderRadius: 6 };
-const menuWrapStyle = (x: number, y: number, minWidth = 194): React.CSSProperties => ({
+export const menuWrapStyle = (x: number, y: number, minWidth = 194): React.CSSProperties => ({
   position: "fixed",
   left: x,
   top: y,
@@ -16,7 +16,7 @@ const menuWrapStyle = (x: number, y: number, minWidth = 194): React.CSSPropertie
   zIndex: 62,
 });
 
-function Item({ onClick, danger, children }: { onClick: () => void; danger?: boolean; children: React.ReactNode }) {
+export function Item({ onClick, danger, children }: { onClick: () => void; danger?: boolean; children: React.ReactNode }) {
   const [hover, setHover] = React.useState(false);
   return (
     <div
@@ -29,7 +29,7 @@ function Item({ onClick, danger, children }: { onClick: () => void; danger?: boo
     </div>
   );
 }
-function Divider() {
+export function Divider() {
   return <div style={{ height: 1, background: "var(--border)", margin: "5px 8px" }} />;
 }
 

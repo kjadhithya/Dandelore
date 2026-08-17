@@ -12,12 +12,20 @@ export type PopupState =
   | { type: "tag"; query: string; pos: { x: number; y: number }; suggestions: string[]; activeIdx: number }
   | null;
 
+export type BlockKind = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "bullet" | "ol" | "task" | "quote";
+
+export type CtxMenuState =
+  | { kind: "para"; x: number; y: number; line: HTMLDivElement; blockKind: BlockKind }
+  | { kind: "link"; x: number; y: number; title: string }
+  | null;
+
 export interface EditorEngineDeps {
   hasNote: TitleResolver;
   getLinkSuggestions: (query: string) => LinkSuggestion[];
   getTagSuggestions: (query: string) => string[];
   onContentChange: (content: string) => void;
   onPopupChange: (popup: PopupState) => void;
+  onCtxMenuChange: (ctx: CtxMenuState) => void;
   // Inserting a [[link]] from the autocomplete popup while typing — creates
   // the target note if missing but stays put, unlike clicking a link.
   onLinkInsert: (title: string) => void;
@@ -59,6 +67,7 @@ export class EditorEngine {
   // onEditorMouseDown/onDblClick) sidesteps that by never trusting a
   // post-reflow coordinate for word selection.
   lastMouseDown: { line: HTMLDivElement; col: number; x: number; y: number; t: number } | null = null;
+  ctxMenu: CtxMenuState = null;
   deps: EditorEngineDeps;
 
   constructor(deps: EditorEngineDeps) {
@@ -106,6 +115,7 @@ export class EditorEngine {
       this.detectLink();
     });
     ed.addEventListener("click", (e) => this.onClick(e));
+    ed.addEventListener("contextmenu", (e) => this.onContextMenu(e));
     ed.addEventListener("compositionend", () => {
       this.rebuildAll();
       this.commit();
@@ -775,6 +785,93 @@ export class EditorEngine {
       if (h) window.open(h, "_blank", "noopener,noreferrer");
       return;
     }
+  }
+
+  /** Right-click inside the editor: suppress the browser's native menu and
+   * hand the caller (via onCtxMenuChange) either a "link" context — the
+   * click landed on a [[wikilink]] — or a "para" context carrying the
+   * clicked line's current block kind, so the paragraph submenu can show
+   * a checkmark next to it. */
+  onContextMenu(e: MouseEvent) {
+    e.preventDefault();
+    const t = e.target as HTMLElement;
+    const wl = t.closest && (t.closest("[data-wikilink]") as HTMLElement | null);
+    if (wl) {
+      this.deps.onCtxMenuChange({ kind: "link", x: e.clientX, y: e.clientY, title: wl.getAttribute("data-wikilink") || "" });
+      return;
+    }
+    const lineEl = t.closest && (t.closest(".ln") as HTMLDivElement | null);
+    if (!lineEl || !this.ed?.contains(lineEl)) {
+      this.deps.onCtxMenuChange(null);
+      return;
+    }
+    this.deps.onCtxMenuChange({ kind: "para", x: e.clientX, y: e.clientY, line: lineEl, blockKind: this.blockKindOf(lineEl.textContent || "") });
+  }
+
+  closeCtxMenu() {
+    this.deps.onCtxMenuChange(null);
+  }
+
+  /** Strips whatever block-prefix (heading/quote/task/bullet/numbered) a
+   * line currently has, leaving just its content — the common starting
+   * point setBlockType uses before applying the new prefix. */
+  stripBlockPrefix(text: string): string {
+    let m: RegExpMatchArray | null;
+    if ((m = text.match(/^#{1,6}\s+(.*)$/))) return m[1];
+    if ((m = text.match(/^\s*>\s?(.*)$/))) return m[1];
+    if ((m = text.match(/^\s*[-*]\s+\[( |x|X)\]\s?(.*)$/))) return m[2];
+    if ((m = text.match(/^\s*[-*]\s+(.*)$/))) return m[1];
+    if ((m = text.match(/^\s*\d+\.\s+(.*)$/))) return m[1];
+    return text;
+  }
+
+  blockKindOf(text: string): BlockKind {
+    let m: RegExpMatchArray | null;
+    if ((m = text.match(/^(#{1,6})\s+/))) return ("h" + m[1].length) as BlockKind;
+    if (/^\s*>\s?/.test(text)) return "quote";
+    if (/^\s*[-*]\s+\[( |x|X)\]\s?/.test(text)) return "task";
+    if (/^\s*[-*]\s+/.test(text)) return "bullet";
+    if (/^\s*\d+\.\s+/.test(text)) return "ol";
+    return "body";
+  }
+
+  /** Applies a block-level markdown prefix (heading/bullet/numbered/task/
+   * quote, or plain "body" to strip one) to a single line, used by the
+   * right-click Paragraph submenu. */
+  setBlockType(line: HTMLDivElement, kind: BlockKind) {
+    const text = line.textContent || "";
+    const content = this.stripBlockPrefix(text);
+    let nt: string;
+    switch (kind) {
+      case "body":
+        nt = content;
+        break;
+      case "h1":
+      case "h2":
+      case "h3":
+      case "h4":
+      case "h5":
+      case "h6":
+        nt = "#".repeat(Number(kind[1])) + " " + content;
+        break;
+      case "bullet":
+        nt = "- " + content;
+        break;
+      case "ol":
+        nt = "1. " + content;
+        break;
+      case "task":
+        nt = "- [ ] " + content;
+        break;
+      case "quote":
+        nt = "> " + content;
+        break;
+    }
+    this.updateLine(line, nt);
+    this.setActive(line);
+    this.setCol(line, nt.length);
+    this.ed?.focus();
+    this.commit();
   }
 
   /** node/offset -> column, from whatever's under an arbitrary screen

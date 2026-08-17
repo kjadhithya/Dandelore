@@ -1,16 +1,131 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { EditorEngine, type PopupState } from "@/lib/editor/EditorEngine";
+import { EditorEngine, type PopupState, type CtxMenuState, type BlockKind } from "@/lib/editor/EditorEngine";
 import { useVaultStore, noteTags, copyText } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
 import { FONTS } from "@/lib/theme/tokens";
 import { attachFilesToCurrentNote } from "@/lib/vault/attachFiles";
+import { Item, Divider, menuWrapStyle } from "@/components/menus/ContextMenus";
 import type { Note } from "@/types/vault";
+
+const BLOCK_LABELS: { kind: BlockKind; label: string }[] = [
+  { kind: "bullet", label: "Bullet list" },
+  { kind: "ol", label: "Numbered list" },
+  { kind: "task", label: "Task list" },
+];
+const HEADING_LABELS: { kind: BlockKind; label: string }[] = [
+  { kind: "h1", label: "Heading 1" },
+  { kind: "h2", label: "Heading 2" },
+  { kind: "h3", label: "Heading 3" },
+  { kind: "h4", label: "Heading 4" },
+  { kind: "h5", label: "Heading 5" },
+  { kind: "h6", label: "Heading 6" },
+  { kind: "body", label: "Body" },
+];
+
+function ParagraphMenuItem({ active, onClick, children }: { active?: boolean; onClick: () => void; children: React.ReactNode }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "8px 13px",
+        fontSize: 13,
+        color: "var(--ink)",
+        cursor: "pointer",
+        borderRadius: 6,
+        background: hover ? "var(--active)" : "transparent",
+      }}
+    >
+      <span style={{ width: 12, flex: "0 0 auto", color: "var(--muted)" }}>{active ? "✓" : ""}</span>
+      <span>{children}</span>
+    </div>
+  );
+}
+
+const submenuStyle = (flip: boolean): React.CSSProperties => ({
+  position: "absolute",
+  [flip ? "right" : "left"]: "100%",
+  top: -6,
+  minWidth: 190,
+  background: "var(--panel)",
+  border: "1px solid var(--border)",
+  borderRadius: 10,
+  boxShadow: "0 18px 44px -12px rgba(0,0,0,.45)",
+  padding: 5,
+  zIndex: 63,
+});
+
+/** Right-click "Paragraph" flyout — mirrors the block-type submenu shown in
+ * native rich-text editors (Bullet/Numbered/Task list, headings, Body,
+ * Quote), but drives EditorEngine.setBlockType against markdown line
+ * prefixes instead of native execCommand formatting. */
+function ParagraphSubmenu({ blockKind, onApply, flip }: { blockKind: BlockKind; onApply: (kind: BlockKind) => void; flip: boolean }) {
+  return (
+    <div onClick={(e) => e.stopPropagation()} style={submenuStyle(flip)}>
+      {BLOCK_LABELS.map(({ kind, label }) => (
+        <ParagraphMenuItem key={kind} active={blockKind === kind} onClick={() => onApply(kind)}>
+          {label}
+        </ParagraphMenuItem>
+      ))}
+      <Divider />
+      {HEADING_LABELS.map(({ kind, label }) => (
+        <ParagraphMenuItem key={kind} active={blockKind === kind} onClick={() => onApply(kind)}>
+          {label}
+        </ParagraphMenuItem>
+      ))}
+      <Divider />
+      <ParagraphMenuItem active={blockKind === "quote"} onClick={() => onApply("quote")}>
+        Quote
+      </ParagraphMenuItem>
+    </div>
+  );
+}
+
+function ParaMenu({ blockKind, onApply, flip }: { blockKind: BlockKind; onApply: (kind: BlockKind) => void; flip: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      // Hover opens it for mouse users; a tap has no hover state at all, so
+      // the row is also click-toggled — otherwise this submenu would be
+      // unreachable on touch devices.
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onClick={(e) => {
+        e.stopPropagation();
+        setOpen(true);
+      }}
+      style={{ position: "relative", display: "flex", alignItems: "center", gap: 8, padding: "8px 13px", fontSize: 13, color: "var(--ink)", cursor: "pointer", borderRadius: 6, background: open ? "var(--active)" : "transparent" }}
+    >
+      <span style={{ flex: 1 }}>Paragraph</span>
+      <span style={{ color: "var(--faint)" }}>›</span>
+      {open && <ParagraphSubmenu blockKind={blockKind} onApply={onApply} flip={flip} />}
+    </div>
+  );
+}
+
+function LinkMenu({ title, onOpenNewTab, onOpenSplit }: { title: string; onOpenNewTab: () => void; onOpenSplit: () => void }) {
+  return (
+    <>
+      <div style={{ padding: "6px 13px 4px", fontSize: 10.5, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--faint)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {title}
+      </div>
+      <Item onClick={onOpenNewTab}>Open in new tab</Item>
+      <Item onClick={onOpenSplit}>Open in split view</Item>
+    </>
+  );
+}
 
 export function LiveEditor({ note }: { note: Note }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const engineRef = useRef<EditorEngine | null>(null);
   const [popup, setPopup] = useState<PopupState>(null);
+  const [ctxMenu, setCtxMenu] = useState<CtxMenuState>(null);
   const { accentText } = useDerivedTheme();
   const noteFont = useVaultStore((s) => s.noteFont);
   const byTitle = useVaultStore((s) => s.byTitle);
@@ -21,6 +136,8 @@ export function LiveEditor({ note }: { note: Note }) {
   const openOrCreate = useVaultStore((s) => s.openOrCreate);
   const ensureNote = useVaultStore((s) => s.ensureNote);
   const openSearch = useVaultStore((s) => s.openSearch);
+  const openNoteNewTab = useVaultStore((s) => s.openNoteNewTab);
+  const openNoteInSplit = useVaultStore((s) => s.openNoteInSplit);
 
   const noteIdRef = useRef(note.id);
   noteIdRef.current = note.id;
@@ -60,6 +177,7 @@ export function LiveEditor({ note }: { note: Note }) {
         setNoteContent(noteIdRef.current, content);
       },
       onPopupChange: setPopup,
+      onCtxMenuChange: setCtxMenu,
       onLinkInsert: (title) => ensureNote(title),
       onLinkClick: (title) => openOrCreate(title),
       onOpenSearch: openSearch,
@@ -184,6 +302,52 @@ export function LiveEditor({ note }: { note: Note }) {
               ↵ to link · Esc to cancel
             </div>
           )}
+        </div>
+      )}
+      {ctxMenu && (
+        <div
+          onClick={() => setCtxMenu(null)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setCtxMenu(null);
+          }}
+          style={{ position: "fixed", inset: 0, zIndex: 60 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              ...menuWrapStyle(ctxMenu.x, ctxMenu.y, 194),
+              position: "fixed",
+              top: Math.min(ctxMenu.y, Math.max(8, window.innerHeight - (ctxMenu.kind === "para" ? 470 : 130) - 8)),
+            }}
+          >
+            {ctxMenu.kind === "para" ? (
+              <ParaMenu
+                blockKind={ctxMenu.blockKind}
+                onApply={(kind) => {
+                  engineRef.current!.setBlockType(ctxMenu.line, kind);
+                  setCtxMenu(null);
+                }}
+                flip={ctxMenu.x + 194 + 190 > window.innerWidth}
+              />
+            ) : (
+              <LinkMenu
+                title={ctxMenu.title}
+                onOpenNewTab={() => {
+                  const existing = byTitle(ctxMenu.title);
+                  const id = existing ? existing.id : ensureNote(ctxMenu.title);
+                  openNoteNewTab(id);
+                  setCtxMenu(null);
+                }}
+                onOpenSplit={() => {
+                  const existing = byTitle(ctxMenu.title);
+                  const id = existing ? existing.id : ensureNote(ctxMenu.title);
+                  openNoteInSplit(id);
+                  setCtxMenu(null);
+                }}
+              />
+            )}
+          </div>
         </div>
       )}
     </div>

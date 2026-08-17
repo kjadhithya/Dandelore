@@ -6,6 +6,12 @@ import { SORT_OPTS } from "@/lib/theme/tokens";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { CategoryActionsMenu } from "./CategoryActionsMenu";
 
+type CatOrder = "default" | "count-desc" | "count-asc";
+const CAT_ORDER_OPTS: [CatOrder, string][] = [
+  ["count-desc", "Note count (high to low)"],
+  ["count-asc", "Note count (low to high)"],
+];
+
 export function CategoriesView() {
   const s = useVaultStore();
   const isMobile = useIsMobile();
@@ -13,6 +19,7 @@ export function CategoriesView() {
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
+  const [catOrder, setCatOrder] = useState<CatOrder>("default");
 
   const catViewList = useMemo(
     () =>
@@ -23,8 +30,14 @@ export function CategoriesView() {
           pinned: s.pinnedCategories.includes(c),
           notes: sortNotes(s.notes.filter((n) => n.category === c), s.sort),
         }))
-        .sort((a, b) => Number(b.pinned) - Number(a.pinned)),
-    [s.categories, s.notes, s.sort, s.pinnedCategories, query],
+        .sort((a, b) => {
+          const pinDiff = Number(b.pinned) - Number(a.pinned);
+          if (pinDiff) return pinDiff;
+          if (catOrder === "count-desc") return b.notes.length - a.notes.length;
+          if (catOrder === "count-asc") return a.notes.length - b.notes.length;
+          return 0;
+        }),
+    [s.categories, s.notes, s.sort, s.pinnedCategories, query, catOrder],
   );
   const sortLabel = SORT_OPTS.find(([k]) => k === s.sort)?.[1] || "Sort";
 
@@ -60,6 +73,30 @@ export function CategoriesView() {
                 onMouseLeave={() => setSortOpen(false)}
                 style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 10, minWidth: 200, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(0,0,0,.45)", padding: 5 }}
               >
+                <div style={{ padding: "5px 11px 4px", fontSize: 10.5, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--faint)" }}>Categories</div>
+                <div
+                  onClick={() => {
+                    setCatOrder("default");
+                    setSortOpen(false);
+                  }}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 11px", fontSize: 12.5, color: "var(--ink)", cursor: "pointer", borderRadius: 6, background: catOrder === "default" ? "var(--active)" : "transparent" }}
+                >
+                  Default order
+                </div>
+                {CAT_ORDER_OPTS.map(([key, label]) => (
+                  <div
+                    key={key}
+                    onClick={() => {
+                      setCatOrder(key);
+                      setSortOpen(false);
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 11px", fontSize: 12.5, color: "var(--ink)", cursor: "pointer", borderRadius: 6, background: catOrder === key ? "var(--active)" : "transparent" }}
+                  >
+                    {label}
+                  </div>
+                ))}
+                <div style={{ height: 1, background: "var(--border)", margin: "5px 8px" }} />
+                <div style={{ padding: "5px 11px 4px", fontSize: 10.5, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--faint)" }}>Notes within category</div>
                 {SORT_OPTS.map(([key, label]) => (
                   <div
                     key={key}
