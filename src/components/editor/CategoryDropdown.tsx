@@ -108,40 +108,49 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
           fontSize: 12.5,
         }}
       >
-        <input
-          value={open ? query : value}
-          onFocus={(e) => {
-            setOpen(true);
-            e.target.select();
+        {/* Mobile virtual keyboards are inconsistent about how they signal
+         * their Enter/Go/Done key was pressed on a single-line input — a
+         * real keydown with key "Enter" on some, a plain input event on
+         * others (inputType "insertLineBreak", or "insertText" carrying
+         * the newline as its data — a single-line <input> strips "\n" from
+         * .value before any handler sees it, so that can't be checked
+         * directly), and a few submit the enclosing <form> without any of
+         * the above. All three are wired up below; tapping a matching row
+         * or the "+ Create" entry in the open dropdown works regardless of
+         * which (if any) of these actually fires. */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            commitFromQuery(query);
           }}
-          onChange={(e) => {
-            // Many mobile virtual keyboards commit their Enter/Go/Done key as
-            // a plain input event rather than a real Enter keydown, so
-            // onKeyDown below never fires there. A single-line <input>
-            // strips any "\n" from .value before this handler ever sees it,
-            // so that can't be used to detect it — inputType (most
-            // keyboards report "insertLineBreak") and data (a few instead
-            // report "insertText" with the newline as the inserted data)
-            // are the only signals that survive the sanitization.
-            const native = e.nativeEvent as InputEvent;
-            if (native.inputType === "insertLineBreak" || native.data?.includes("\n")) {
+          style={{ display: "contents" }}
+        >
+          <input
+            value={open ? query : value}
+            onFocus={(e) => {
+              setOpen(true);
+              e.target.select();
+            }}
+            onChange={(e) => {
+              const native = e.nativeEvent as InputEvent;
               setQuery(e.target.value);
-              commitFromQuery(e.target.value);
-              return;
-            }
-            setQuery(e.target.value);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              commitFromQuery(q);
-            } else if (e.key === "Escape") {
-              setOpen(false);
-              setQuery("");
-            }
-          }}
-          placeholder="None"
-          style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", color: "var(--ink)", fontSize: 12.5, fontFamily: "inherit", cursor: "text" }}
-        />
+              if (native.inputType === "insertLineBreak" || native.data?.includes("\n")) {
+                commitFromQuery(e.target.value);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitFromQuery(query);
+              } else if (e.key === "Escape") {
+                setOpen(false);
+                setQuery("");
+              }
+            }}
+            placeholder="None"
+            style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", color: "var(--ink)", fontSize: 12.5, fontFamily: "inherit", cursor: "text" }}
+          />
+        </form>
         <ChevronDownSmall size={13} />
       </div>
       {open && (

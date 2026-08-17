@@ -163,6 +163,22 @@ function TagsField({
     onTagDraft("");
   }
 
+  // Mobile virtual keyboards are inconsistent about how they signal their
+  // Enter/Go/Done key was pressed on a single-line input — a real keydown
+  // with key "Enter" on some, a plain input event on others (with
+  // inputType "insertLineBreak", or "insertText" carrying the newline as
+  // its data — a single-line <input> strips "\n" from .value before any
+  // handler sees it, so that can't be checked directly), and a few submit
+  // the enclosing <form> without any of the above. All three are wired up
+  // below, plus a tap target that needs no keyboard-event guessing at all
+  // as the guaranteed fallback.
+  function commitDraft() {
+    if (tagDraft.trim()) {
+      onTagKey("Enter", tagDraft);
+      onTagDraft("");
+    }
+  }
+
   return (
     <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
       <div
@@ -188,31 +204,58 @@ function TagsField({
             </span>
           </span>
         ))}
-        <input
-          value={tagDraft}
-          onChange={(e) => {
-            // Many mobile virtual keyboards commit their Enter/Go/Done key as
-            // a plain input event rather than a real Enter keydown, so
-            // onKeyDown below never fires there. A single-line <input>
-            // strips any "\n" from .value before this handler ever sees it,
-            // so that can't be used to detect it — inputType (most
-            // keyboards report "insertLineBreak") and data (a few instead
-            // report "insertText" with the newline as the inserted data)
-            // are the only signals that survive the sanitization.
-            const native = e.nativeEvent as InputEvent;
-            if (native.inputType === "insertLineBreak" || native.data?.includes("\n")) {
-              onTagKey("Enter", e.target.value);
-              onTagDraft("");
-              return;
-            }
-            onTagDraft(e.target.value);
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            commitDraft();
           }}
-          onKeyDown={(e) => onTagKey(e.key, tagDraft)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setTimeout(() => setFocused(false), 120)}
-          placeholder={tags.length ? "Add tag…" : "+ tag"}
-          style={{ flex: 1, minWidth: 70, border: "none", background: "transparent", outline: "none", fontSize: 12.5, color: "var(--ink)", fontFamily: "var(--font-ibm-plex-mono)", padding: "2px 2px" }}
-        />
+          style={{ display: "contents" }}
+        >
+          <input
+            value={tagDraft}
+            onChange={(e) => {
+              const native = e.nativeEvent as InputEvent;
+              if (native.inputType === "insertLineBreak" || native.data?.includes("\n")) {
+                commitDraft();
+                return;
+              }
+              onTagDraft(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitDraft();
+              }
+            }}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setTimeout(() => setFocused(false), 120)}
+            placeholder={tags.length ? "Add tag…" : "+ tag"}
+            style={{ flex: 1, minWidth: 70, border: "none", background: "transparent", outline: "none", fontSize: 12.5, color: "var(--ink)", fontFamily: "var(--font-ibm-plex-mono)", padding: "2px 2px" }}
+          />
+        </form>
+        {tagDraft.trim() && (
+          <span
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={commitDraft}
+            title="Add tag"
+            style={{
+              flex: "0 0 auto",
+              width: 20,
+              height: 20,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "50%",
+              background: accentText,
+              color: "var(--input)",
+              fontSize: 14,
+              lineHeight: 1,
+              cursor: "pointer",
+            }}
+          >
+            +
+          </span>
+        )}
       </div>
       {showDropdown && (
         <div
