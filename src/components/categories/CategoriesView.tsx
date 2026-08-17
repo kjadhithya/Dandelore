@@ -2,12 +2,12 @@
 import React, { useMemo, useState } from "react";
 import { useVaultStore, sortNotes } from "@/lib/store/useVaultStore";
 import { SearchIcon, SortIcon, MoreIcon, PinIcon } from "@/components/icons/Icons";
-import { SORT_OPTS } from "@/lib/theme/tokens";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { CategoryActionsMenu } from "./CategoryActionsMenu";
 
 type CatOrder = "default" | "count-desc" | "count-asc";
 const CAT_ORDER_OPTS: [CatOrder, string][] = [
+  ["default", "Default order"],
   ["count-desc", "Note count (high to low)"],
   ["count-asc", "Note count (low to high)"],
 ];
@@ -28,7 +28,7 @@ export function CategoriesView() {
         .map((c) => ({
           name: c,
           pinned: s.pinnedCategories.includes(c),
-          notes: sortNotes(s.notes.filter((n) => n.category === c), s.sort),
+          notes: sortNotes(s.notes.filter((n) => n.category === c), "mod-new"),
         }))
         .sort((a, b) => {
           const pinDiff = Number(b.pinned) - Number(a.pinned);
@@ -37,9 +37,9 @@ export function CategoriesView() {
           if (catOrder === "count-asc") return a.notes.length - b.notes.length;
           return 0;
         }),
-    [s.categories, s.notes, s.sort, s.pinnedCategories, query, catOrder],
+    [s.categories, s.notes, s.pinnedCategories, query, catOrder],
   );
-  const sortLabel = SORT_OPTS.find(([k]) => k === s.sort)?.[1] || "Sort";
+  const sortLabel = CAT_ORDER_OPTS.find(([k]) => k === catOrder)?.[1] || "Sort";
 
   return (
     <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "26px 30px" }}>
@@ -73,16 +73,6 @@ export function CategoriesView() {
                 onMouseLeave={() => setSortOpen(false)}
                 style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 10, minWidth: 200, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(0,0,0,.45)", padding: 5 }}
               >
-                <div style={{ padding: "5px 11px 4px", fontSize: 10.5, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--faint)" }}>Categories</div>
-                <div
-                  onClick={() => {
-                    setCatOrder("default");
-                    setSortOpen(false);
-                  }}
-                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 11px", fontSize: 12.5, color: "var(--ink)", cursor: "pointer", borderRadius: 6, background: catOrder === "default" ? "var(--active)" : "transparent" }}
-                >
-                  Default order
-                </div>
                 {CAT_ORDER_OPTS.map(([key, label]) => (
                   <div
                     key={key}
@@ -91,20 +81,6 @@ export function CategoriesView() {
                       setSortOpen(false);
                     }}
                     style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 11px", fontSize: 12.5, color: "var(--ink)", cursor: "pointer", borderRadius: 6, background: catOrder === key ? "var(--active)" : "transparent" }}
-                  >
-                    {label}
-                  </div>
-                ))}
-                <div style={{ height: 1, background: "var(--border)", margin: "5px 8px" }} />
-                <div style={{ padding: "5px 11px 4px", fontSize: 10.5, fontWeight: 600, letterSpacing: ".05em", textTransform: "uppercase", color: "var(--faint)" }}>Notes within category</div>
-                {SORT_OPTS.map(([key, label]) => (
-                  <div
-                    key={key}
-                    onClick={() => {
-                      s.setSort(key);
-                      setSortOpen(false);
-                    }}
-                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 11px", fontSize: 12.5, color: "var(--ink)", cursor: "pointer", borderRadius: 6, background: s.sort === key ? "var(--active)" : "transparent" }}
                   >
                     {label}
                   </div>

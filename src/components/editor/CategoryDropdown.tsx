@@ -116,14 +116,17 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
           }}
           onChange={(e) => {
             // Many mobile virtual keyboards commit their Enter/Go/Done key as
-            // an "insertLineBreak" input event rather than a real Enter
-            // keydown, so onKeyDown below never fires there — this is the
-            // fallback that makes committing a new category work on mobile.
+            // a plain input event rather than a real Enter keydown, so
+            // onKeyDown below never fires there. A single-line <input>
+            // strips any "\n" from .value before this handler ever sees it,
+            // so that can't be used to detect it — inputType (most
+            // keyboards report "insertLineBreak") and data (a few instead
+            // report "insertText" with the newline as the inserted data)
+            // are the only signals that survive the sanitization.
             const native = e.nativeEvent as InputEvent;
-            if (native.inputType === "insertLineBreak") {
-              const v = e.target.value.replace(/\n$/, "");
-              setQuery(v);
-              commitFromQuery(v);
+            if (native.inputType === "insertLineBreak" || native.data?.includes("\n")) {
+              setQuery(e.target.value);
+              commitFromQuery(e.target.value);
               return;
             }
             setQuery(e.target.value);

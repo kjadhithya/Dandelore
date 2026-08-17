@@ -192,12 +192,16 @@ function TagsField({
           value={tagDraft}
           onChange={(e) => {
             // Many mobile virtual keyboards commit their Enter/Go/Done key as
-            // an "insertLineBreak" input event rather than a real Enter
-            // keydown, so onKeyDown below never fires there — this fallback
-            // is what makes pressing Enter to add a tag work on mobile.
+            // a plain input event rather than a real Enter keydown, so
+            // onKeyDown below never fires there. A single-line <input>
+            // strips any "\n" from .value before this handler ever sees it,
+            // so that can't be used to detect it — inputType (most
+            // keyboards report "insertLineBreak") and data (a few instead
+            // report "insertText" with the newline as the inserted data)
+            // are the only signals that survive the sanitization.
             const native = e.nativeEvent as InputEvent;
-            if (native.inputType === "insertLineBreak") {
-              onTagKey("Enter", e.target.value.replace(/\n$/, ""));
+            if (native.inputType === "insertLineBreak" || native.data?.includes("\n")) {
+              onTagKey("Enter", e.target.value);
               onTagDraft("");
               return;
             }
