@@ -311,6 +311,7 @@ interface RemoteSettingsRow {
   note_font: string;
   title_font: string;
   sort: string;
+  pinned_categories: string[];
 }
 
 /** Appearance prefs used to live in localStorage only, so they never
@@ -328,6 +329,7 @@ function settingsToRow(vaultId: string) {
     note_font: s.noteFont,
     title_font: s.titleFont,
     sort: s.sort,
+    pinned_categories: s.pinnedCategories,
   };
 }
 
@@ -339,6 +341,7 @@ function applySettingsRow(row: RemoteSettingsRow) {
     noteFont: row.note_font as never,
     titleFont: row.title_font as never,
     sort: row.sort as never,
+    pinnedCategories: row.pinned_categories || [],
   });
 }
 

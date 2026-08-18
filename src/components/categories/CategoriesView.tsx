@@ -5,11 +5,17 @@ import { SearchIcon, SortIcon, MoreIcon, PinIcon } from "@/components/icons/Icon
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 import { CategoryActionsMenu } from "./CategoryActionsMenu";
 
-type CatOrder = "default" | "count-desc" | "count-asc";
+type CatOrder = "default" | "count-desc" | "count-asc" | "name-az" | "name-za" | "mod-new" | "mod-old" | "created-new" | "created-old";
 const CAT_ORDER_OPTS: [CatOrder, string][] = [
   ["default", "Default order"],
   ["count-desc", "Note count (high to low)"],
   ["count-asc", "Note count (low to high)"],
+  ["name-az", "Name (A to Z)"],
+  ["name-za", "Name (Z to A)"],
+  ["mod-new", "Modified (new to old)"],
+  ["mod-old", "Modified (old to new)"],
+  ["created-new", "Created (new to old)"],
+  ["created-old", "Created (old to new)"],
 ];
 
 export function CategoriesView() {
@@ -21,24 +27,49 @@ export function CategoriesView() {
   const [sortOpen, setSortOpen] = useState(false);
   const [catOrder, setCatOrder] = useState<CatOrder>("default");
 
-  const catViewList = useMemo(
-    () =>
-      s.categories
-        .filter((c) => !query.trim() || c.toLowerCase().includes(query.trim().toLowerCase()))
-        .map((c) => ({
+  const catViewList = useMemo(() => {
+    // Categories carry no timestamp of their own — "Created" falls back to
+    // insertion order in s.categories (append-only, so index doubles as
+    // creation order), and "Modified" to the most recently touched note in
+    // that category (empty categories sort as never-modified).
+    const createdIndex = new Map(s.categories.map((c, i) => [c, i]));
+    return s.categories
+      .filter((c) => !query.trim() || c.toLowerCase().includes(query.trim().toLowerCase()))
+      .map((c) => {
+        const notes = sortNotes(s.notes.filter((n) => n.category === c), "mod-new");
+        return {
           name: c,
           pinned: s.pinnedCategories.includes(c),
-          notes: sortNotes(s.notes.filter((n) => n.category === c), "mod-new"),
-        }))
-        .sort((a, b) => {
-          const pinDiff = Number(b.pinned) - Number(a.pinned);
-          if (pinDiff) return pinDiff;
-          if (catOrder === "count-desc") return b.notes.length - a.notes.length;
-          if (catOrder === "count-asc") return a.notes.length - b.notes.length;
-          return 0;
-        }),
-    [s.categories, s.notes, s.pinnedCategories, query, catOrder],
-  );
+          notes,
+          lastModified: notes[0] ? notes[0].modified || notes[0].date || "" : "",
+          createdIdx: createdIndex.get(c) ?? 0,
+        };
+      })
+      .sort((a, b) => {
+        const pinDiff = Number(b.pinned) - Number(a.pinned);
+        if (pinDiff) return pinDiff;
+        switch (catOrder) {
+          case "count-desc":
+            return b.notes.length - a.notes.length;
+          case "count-asc":
+            return a.notes.length - b.notes.length;
+          case "name-az":
+            return a.name.localeCompare(b.name);
+          case "name-za":
+            return b.name.localeCompare(a.name);
+          case "mod-new":
+            return b.lastModified.localeCompare(a.lastModified);
+          case "mod-old":
+            return a.lastModified.localeCompare(b.lastModified);
+          case "created-new":
+            return b.createdIdx - a.createdIdx;
+          case "created-old":
+            return a.createdIdx - b.createdIdx;
+          default:
+            return 0;
+        }
+      });
+  }, [s.categories, s.notes, s.pinnedCategories, query, catOrder]);
   const sortLabel = CAT_ORDER_OPTS.find(([k]) => k === catOrder)?.[1] || "Sort";
 
   return (

@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useVaultStore } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
-import { SidebarToggleIcon, SearchIcon, GraphIcon, MoreIcon } from "@/components/icons/Icons";
+import { SidebarToggleIcon, SearchIcon, GraphIcon, CategoriesIcon, MoreIcon } from "@/components/icons/Icons";
 import { MoreSheet } from "./MoreSheet";
 
 function TabButton({ label, active, onClick, children }: { label: string; active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -12,6 +12,7 @@ function TabButton({ label, active, onClick, children }: { label: string; active
       onClick={onClick}
       style={{
         flex: 1,
+        minWidth: 0,
         minHeight: 48,
         display: "flex",
         flexDirection: "column",
@@ -23,7 +24,7 @@ function TabButton({ label, active, onClick, children }: { label: string; active
       }}
     >
       {children}
-      <span style={{ fontSize: 10.5, fontWeight: active ? 600 : 400 }}>{label}</span>
+      <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "0 2px" }}>{label}</span>
     </div>
   );
 }
@@ -36,6 +37,7 @@ export function BottomTabBar() {
   const filesActive = s.leftOpen && s.sideMode === "files";
   const searchActive = s.leftOpen && s.sideMode === "search";
   const graphActive = !s.leftOpen && kind === "graph";
+  const categoriesActive = !s.leftOpen && (kind === "categories" || kind === "category");
 
   function onFiles() {
     if (filesActive) {
@@ -54,6 +56,10 @@ export function BottomTabBar() {
   function onGraph() {
     if (s.leftOpen) s.toggleLeft();
     s.goGraph();
+  }
+  function onCategories() {
+    if (s.leftOpen) s.toggleLeft();
+    s.goCategories();
   }
 
   return (
@@ -79,6 +85,9 @@ export function BottomTabBar() {
         </TabButton>
         <TabButton label="Graph" active={graphActive} onClick={onGraph}>
           <GraphIcon size={20} />
+        </TabButton>
+        <TabButton label="Categories" active={categoriesActive} onClick={onCategories}>
+          <CategoriesIcon size={20} />
         </TabButton>
         <TabButton label="More" active={moreOpen} onClick={() => setMoreOpen(true)}>
           <MoreIcon size={20} />
