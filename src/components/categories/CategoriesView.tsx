@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useVaultStore, sortNotes } from "@/lib/store/useVaultStore";
 import { SearchIcon, SortIcon, MoreIcon, PinIcon } from "@/components/icons/Icons";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
@@ -17,6 +17,23 @@ const CAT_ORDER_OPTS: [CatOrder, string][] = [
   ["created-new", "Created (new to old)"],
   ["created-old", "Created (old to new)"],
 ];
+const CAT_ORDER_KEYS = new Set(CAT_ORDER_OPTS.map(([k]) => k));
+
+// Read synchronously (not in an effect) so the chosen sort is already
+// correct on the very first render — this view only ever mounts after
+// VaultShell's own local-DB hydration gate, so there's no SSR pass to
+// mismatch against here. Without this, catOrder always started at
+// "default" and only a user re-picking it in this session would change
+// it, which reads as "the categories are sorted wrong for a second"
+// on every reload since there was never anywhere it could recover the
+// real choice from.
+function readStoredCatOrder(): CatOrder {
+  try {
+    const v = localStorage.getItem("kv-catOrder");
+    if (v && CAT_ORDER_KEYS.has(v as CatOrder)) return v as CatOrder;
+  } catch {}
+  return "default";
+}
 
 export function CategoriesView() {
   const s = useVaultStore();
@@ -25,7 +42,13 @@ export function CategoriesView() {
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
-  const [catOrder, setCatOrder] = useState<CatOrder>("default");
+  const [catOrder, setCatOrder] = useState<CatOrder>(readStoredCatOrder);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("kv-catOrder", catOrder);
+    } catch {}
+  }, [catOrder]);
 
   const catViewList = useMemo(() => {
     // Categories carry no timestamp of their own — "Created" falls back to

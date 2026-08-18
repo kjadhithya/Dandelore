@@ -92,14 +92,28 @@ export function VaultShell() {
     } catch {}
   }, [s.showRight]);
 
-  // Pinned categories are a per-device display preference, not synced vault
-  // data — kept local (like theme/accent/fonts) so pinning doesn't need a
-  // new Supabase column/migration for a purely cosmetic sort order.
   useEffect(() => {
     try {
       localStorage.setItem("kv-pinnedCategories", JSON.stringify(s.pinnedCategories));
     } catch {}
   }, [s.pinnedCategories]);
+
+  // setTheme/setAccent write to localStorage themselves, but that only
+  // covers a change made *from this device*. A theme/accent pulled in from
+  // Supabase (another device changed it, or the initial sync after a
+  // reload) goes through applySettingsRow's plain setState instead, which
+  // never touched localStorage — so the stale cached value kept getting
+  // painted first on every subsequent reload, then visibly replaced once
+  // the Supabase pull corrected it again a moment later, forever, since
+  // the correction itself was never written back to the cache that
+  // caused it. Watching the values directly (like appFont/noteFont/
+  // titleFont above) persists a sync-sourced change same as a local one.
+  useEffect(() => {
+    try {
+      if (s.themeOverride) localStorage.setItem("kv-theme", s.themeOverride);
+      if (s.accentOverride) localStorage.setItem("kv-accent", s.accentOverride);
+    } catch {}
+  }, [s.themeOverride, s.accentOverride]);
 
   // Font choices were never saved anywhere, so a reload silently reverted
   // them to the hardcoded defaults regardless of what was picked in Settings.
