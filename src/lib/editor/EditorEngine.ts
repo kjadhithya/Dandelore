@@ -967,9 +967,19 @@ export class EditorEngine {
       case "bullet":
         nt = "- " + content;
         break;
-      case "ol":
-        nt = "1. " + content;
+      case "ol": {
+        // Continue the immediately preceding line's numbering if it's
+        // already a numbered item, rather than always restarting at 1 —
+        // otherwise applying "Numbered list" one line at a time (the only
+        // way this menu can apply it) produces 1, 1, 1... instead of a
+        // real 1, 2, 3... sequence. A previous line that isn't a numbered
+        // item at all (or none, at the top of the note) starts fresh.
+        const prevText = (line.previousElementSibling as HTMLDivElement | null)?.textContent || "";
+        const m = prevText.match(/^\s*(\d+)\.\s+/);
+        const n = m ? parseInt(m[1], 10) + 1 : 1;
+        nt = n + ". " + content;
         break;
+      }
       case "task":
         nt = "- [ ] " + content;
         break;
