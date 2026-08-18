@@ -812,6 +812,116 @@ export class EditorEngine {
     this.deps.onCtxMenuChange(null);
   }
 
+  /** Deletes whatever's currently selected, merging the two ends together
+   * when the selection spans more than one .ln line — the multi-line
+   * counterpart to singleLineSelection()'s single-line-only replace logic,
+   * needed here since a context-menu Cut/Paste can legitimately span the
+   * whole editor. Returns the resulting collapsed caret position (Paste
+   * inserts there), or null if there was nothing selected to delete. */
+  deleteCurrentSelection(): { line: HTMLDivElement; col: number } | null {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount || !this.ed) return null;
+    const rng = sel.getRangeAt(0);
+    if (!this.ed.contains(rng.startContainer) || !this.ed.contains(rng.endContainer)) return null;
+
+    let l1: Node | null = rng.startContainer;
+    while (l1 && l1.parentNode !== this.ed) l1 = l1.parentNode;
+    let l2: Node | null = rng.endContainer;
+    while (l2 && l2.parentNode !== this.ed) l2 = l2.parentNode;
+    if (!l1 || !l2) return null;
+    const startLine = l1 as HTMLDivElement;
+    const endLine = l2 as HTMLDivElement;
+    const startCol = this.colOf(startLine, rng.startContainer, rng.startOffset);
+    const endCol = this.colOf(endLine, rng.endContainer, rng.endOffset);
+
+    if (startLine === endLine) {
+      const text = startLine.textContent || "";
+      this.updateLine(startLine, text.slice(0, startCol) + text.slice(endCol));
+      this.setActive(startLine);
+      this.setCol(startLine, startCol);
+      this.commit();
+      return { line: startLine, col: startCol };
+    }
+
+    const startText = startLine.textContent || "";
+    const endText = endLine.textContent || "";
+    this.updateLine(startLine, startText.slice(0, startCol) + endText.slice(endCol));
+    this.setActive(startLine);
+    let node: ChildNode | null = startLine.nextSibling;
+    while (node) {
+      const next: ChildNode | null = node.nextSibling;
+      const isEnd = node === endLine;
+      this.ed.removeChild(node);
+      if (isEnd) break;
+      node = next;
+    }
+    this.setCol(startLine, startCol);
+    this.decorateBlocks();
+    this.commit();
+    return { line: startLine, col: startCol };
+  }
+
+  /** Cut/Copy use the async Clipboard API rather than
+   * document.execCommand("copy"/"cut") — the latter turns out to be
+   * blocked in some embedded/automated browser contexts (returns false,
+   * silently does nothing) despite being the traditionally "reliable"
+   * choice, and the modern API is the current standard regardless.
+   * Selection.toString() already inserts a newline between separate .ln
+   * lines, so it doubles as the multi-line-aware text extraction
+   * singleLineSelection() doesn't provide. */
+  async copySelection() {
+    const sel = window.getSelection();
+    const text = sel ? sel.toString() : "";
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {}
+  }
+
+  async cutSelection() {
+    const sel = window.getSelection();
+    const text = sel ? sel.toString() : "";
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      return;
+    }
+    this.deleteCurrentSelection();
+    this.ed?.focus();
+  }
+
+  selectAllContent() {
+    if (!this.ed || !this.ed.firstChild || !this.ed.lastChild) return;
+    this.ed.focus();
+    const first = this.ed.firstChild as HTMLDivElement;
+    const last = this.ed.lastChild as HTMLDivElement;
+    const range = document.createRange();
+    range.setStart(first, 0);
+    range.setEnd(last, last.childNodes.length);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  }
+
+  /** A menu-triggered paste (unlike Cmd+V, which fires a real paste event
+   * browsers handle for us) has to go through the async Clipboard API and
+   * insert the text itself. */
+  async pasteFromClipboard() {
+    let text = "";
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      return;
+    }
+    if (!text) return;
+    const deleted = this.deleteCurrentSelection();
+    const ci = deleted || this.caretInfo();
+    if (!ci) return;
+    this.insertMultilineText(ci, text);
+    this.ed?.focus();
+  }
+
   /** Strips whatever block-prefix (heading/quote/task/bullet/numbered) a
    * line currently has, leaving just its content — the common starting
    * point setBlockType uses before applying the new prefix. */

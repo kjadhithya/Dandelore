@@ -318,18 +318,54 @@ export function LiveEditor({ note }: { note: Note }) {
             style={{
               ...menuWrapStyle(ctxMenu.x, ctxMenu.y, 194),
               position: "fixed",
-              top: Math.min(ctxMenu.y, Math.max(8, window.innerHeight - (ctxMenu.kind === "para" ? 470 : 130) - 8)),
+              top: Math.min(ctxMenu.y, Math.max(8, window.innerHeight - (ctxMenu.kind === "para" ? 636 : 130) - 8)),
             }}
           >
             {ctxMenu.kind === "para" ? (
-              <ParaMenu
-                blockKind={ctxMenu.blockKind}
-                onApply={(kind) => {
-                  engineRef.current!.setBlockType(ctxMenu.line, kind);
-                  setCtxMenu(null);
-                }}
-                flip={ctxMenu.x + 194 + 190 > window.innerWidth}
-              />
+              <>
+                <Item
+                  onClick={() => {
+                    engineRef.current!.cutSelection();
+                    setCtxMenu(null);
+                  }}
+                >
+                  Cut
+                </Item>
+                <Item
+                  onClick={() => {
+                    engineRef.current!.copySelection();
+                    setCtxMenu(null);
+                  }}
+                >
+                  Copy
+                </Item>
+                <Item
+                  onClick={() => {
+                    engineRef.current!.pasteFromClipboard();
+                    setCtxMenu(null);
+                  }}
+                >
+                  Paste
+                </Item>
+                <Divider />
+                <Item
+                  onClick={() => {
+                    engineRef.current!.selectAllContent();
+                    setCtxMenu(null);
+                  }}
+                >
+                  Select all
+                </Item>
+                <Divider />
+                <ParaMenu
+                  blockKind={ctxMenu.blockKind}
+                  onApply={(kind) => {
+                    engineRef.current!.setBlockType(ctxMenu.line, kind);
+                    setCtxMenu(null);
+                  }}
+                  flip={ctxMenu.x + 194 + 190 > window.innerWidth}
+                />
+              </>
             ) : (
               <LinkMenu
                 title={ctxMenu.title}
