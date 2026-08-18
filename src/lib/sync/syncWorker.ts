@@ -334,6 +334,19 @@ function settingsToRow(vaultId: string) {
 }
 
 function applySettingsRow(row: RemoteSettingsRow) {
+  // pinned_categories has no per-field modified timestamp — it's one column
+  // in a whole-row overwrite, same as theme/fonts. That's fine for fields
+  // that always have a sensible value, but pinned_categories was a brand
+  // new synced field: the very first pull after it shipped (or before the
+  // migration adding the column has even been run, where it comes back
+  // undefined) sees an empty/missing remote value despite this device
+  // already having real, never-yet-pushed pins locally. Applying it
+  // unconditionally wiped them on every reload. Only take the remote list
+  // when it actually has something in it, or when local has nothing to
+  // lose either way — pullSettings below re-pushes to correct a stale
+  // remote in the case this skips.
+  const remotePinned = row.pinned_categories;
+  const pinnedCategories = remotePinned && remotePinned.length > 0 ? remotePinned : useVaultStore.getState().pinnedCategories;
   useVaultStore.setState({
     themeOverride: row.theme as never,
     accentOverride: row.accent_color,
@@ -341,7 +354,7 @@ function applySettingsRow(row: RemoteSettingsRow) {
     noteFont: row.note_font as never,
     titleFont: row.title_font as never,
     sort: row.sort as never,
-    pinnedCategories: row.pinned_categories || [],
+    pinnedCategories,
   });
 }
 
@@ -352,7 +365,16 @@ async function pullSettings(vaultId: string): Promise<string> {
   if (error) {
     reportSyncError("Loading settings", error.message);
   } else if (data) {
-    applySettingsRow(data as RemoteSettingsRow);
+    const row = data as RemoteSettingsRow;
+    applySettingsRow(row);
+    // The store's change-diff push loop only fires on a local change, so a
+    // remote that's stale/missing pinned_categories (see applySettingsRow)
+    // needs an explicit push here to actually get corrected — otherwise it
+    // stays wrong until the user happens to toggle a pin themselves.
+    const localPinned = useVaultStore.getState().pinnedCategories;
+    if (localPinned.length && (!row.pinned_categories || row.pinned_categories.length === 0)) {
+      await pushSettings(vaultId);
+    }
   } else {
     const { error: upsertErr } = await supabase.from("vault_settings").upsert(settingsToRow(vaultId));
     if (upsertErr) reportSyncError("Saving settings", upsertErr.message);
