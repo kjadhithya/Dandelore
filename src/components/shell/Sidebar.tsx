@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useVaultStore, noteTags } from "@/lib/store/useVaultStore";
 import { useDerivedTheme } from "@/lib/theme/useDerivedTheme";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
@@ -104,6 +104,7 @@ function NoteRow({
   const isMobile = useIsMobile();
   const curId = s.curId();
   const [hover, setHover] = useState(false);
+  const renameStartRef = useRef(note.title);
   // While something is being dragged, the cursor still crosses rows and
   // fires mouseenter/mouseleave same as always — but the row-level hover
   // tint underneath the whole-folder drop highlight reads as a second,
@@ -115,14 +116,20 @@ function NoteRow({
       <div style={{ padding: "2px 9px" }}>
         <input
           autoFocus
-          onFocus={(e) => e.target.select()}
+          onFocus={(e) => {
+            renameStartRef.current = note.title;
+            e.target.select();
+          }}
           value={note.title}
           onChange={(e) => s.onRenameLive(note.id, e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") (e.target as HTMLInputElement).blur();
             else if (e.key === "Escape") s.stopRename();
           }}
-          onBlur={() => s.stopRename()}
+          onBlur={() => {
+            s.commitTitleRename(note.id, renameStartRef.current);
+            s.stopRename();
+          }}
           style={{
             width: "100%",
             border: "1px solid var(--accent, #b0623b)",

@@ -77,6 +77,7 @@ interface Side {
   splitRight?: () => void;
   splitDown?: () => void;
   onTitle: (v: string) => void;
+  onTitleCommit: (oldTitle: string) => void;
   categoryVal: string;
   onCategorySelect: (v: string) => void;
   tagChips: { name: string; onRemove: () => void; onSearch?: () => void }[];
@@ -92,8 +93,14 @@ interface Side {
  * textarea reads and behaves like the same single title field but wraps
  * like the heading it's styled as. Enter blurs rather than inserting a
  * newline, matching how a title field is expected to behave. */
-function TitleField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function TitleField({ value, onChange, onCommit }: { value: string; onChange: (v: string) => void; onCommit: (oldTitle: string) => void }) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
+  // Captured on focus, used on blur to know what the title was before this
+  // edit session — onCommit rewrites [[OldTitle]] references just once,
+  // comparing start-of-session to final value, rather than on every
+  // keystroke onChange already fires (which would rewrite references to
+  // each half-typed intermediate title instead of the finished one).
+  const startRef = useRef(value);
 
   useEffect(() => {
     const el = ref.current;
@@ -107,6 +114,10 @@ function TitleField({ value, onChange }: { value: string; onChange: (v: string) 
       ref={ref}
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onFocus={() => {
+        startRef.current = value;
+      }}
+      onBlur={() => onCommit(startRef.current)}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();
@@ -425,7 +436,7 @@ export function EditorPane({ note, side }: { note: Note; side: Side }) {
       </div>
       <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 30px 80px" }}>
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
-          <TitleField value={note.title} onChange={side.onTitle} />
+          <TitleField value={note.title} onChange={side.onTitle} onCommit={side.onTitleCommit} />
           {side.metaOpen ? (
             <div style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, padding: "11px 13px", display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -554,6 +565,10 @@ export function useMainSide(): Side {
     splitRight: () => s.splitOpen("right"),
     splitDown: () => s.splitOpen("down"),
     onTitle: s.onTitle,
+    onTitleCommit: (oldTitle) => {
+      const id = s.curId();
+      if (id) s.commitTitleRename(id, oldTitle);
+    },
     categoryVal: cur?.category || "",
     onCategorySelect: s.setCategory,
     tagChips: (cur?.tags || []).map((name) => ({ name, onRemove: () => s.removeNoteTag(cur!.id, name), onSearch: () => s.openSearch("tag:" + name) })),
@@ -594,6 +609,10 @@ export function useSplitSide(): Side {
     toggleBacklinks: s.toggleRightSplit,
     showSplitButtons: false,
     onTitle: s.onSplitTitle,
+    onTitleCommit: (oldTitle) => {
+      const id = s.splitCurId();
+      if (id) s.commitTitleRename(id, oldTitle);
+    },
     categoryVal: n?.category || "",
     onCategorySelect: s.onSplitCategorySelect,
     tagChips: (n?.tags || []).map((name) => ({ name, onRemove: () => s.splitRemoveTag(n!.id, name) })),

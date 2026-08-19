@@ -105,6 +105,7 @@ export class EditorEngine {
 
   attach(ed: HTMLDivElement) {
     ed.addEventListener("paste", (e) => this.onPaste(e));
+    ed.addEventListener("beforeinput", (e) => this.onBeforeInput(e as InputEvent));
     ed.addEventListener("input", (e) => this.onInput(e as InputEvent));
     ed.addEventListener("keydown", (e) => this.onKeydown(e));
     ed.addEventListener("keyup", () => this.updateActive());
@@ -320,6 +321,29 @@ export class EditorEngine {
     this.deps.onPasteFiles(Array.from(files));
   }
 
+  /** Many mobile virtual keyboards never dispatch a real keydown with a
+   * usable e.key for a plain character press — they go straight to
+   * beforeinput/input, so onKeydown's e.key === "["/"*" checks (and the
+   * wrap-a-selection behavior they trigger) silently never run there.
+   * Without this, typing "[" or "*" with text selected falls through to
+   * the browser's own default behavior for a keypress-over-a-selection:
+   * delete the selection and insert the plain character, which reads as
+   * "it replaced my text instead of wrapping it". Intercepting the same
+   * two characters here, before that default insertion happens, and
+   * routing them through the same handleWrapKey used by the desktop
+   * keydown path fixes both the wrap-a-selection and the collapsed-caret
+   * auto-close case identically on mobile. Never fires for a real desktop
+   * keypress: onKeydown's own preventDefault() on the keydown already
+   * stops the browser from getting as far as beforeinput for that key. */
+  onBeforeInput(e: InputEvent) {
+    if (e.inputType !== "insertText") return;
+    if (e.data === "[") {
+      this.handleWrapKey(e, "[", "]", () => setTimeout(() => this.detectLink(), 0));
+    } else if (e.data === "*") {
+      this.handleWrapKey(e, "*", "*");
+    }
+  }
+
   onInput(e: InputEvent) {
     if (e.isComposing) return;
     const it = e.inputType || "";
@@ -479,13 +503,15 @@ export class EditorEngine {
     this.insertText(ci.line, ci.col, open + close, ci.col + ol);
   }
 
-  /** Shared by the `[` and `*` keydown handlers — wraps a selection (or,
-   * with no selection, auto-closes a pair with the caret in between);
-   * pressing the same key again immediately upgrades a single wrap into
-   * a double one (`[text]` -> `[[text]]`, `*text*` -> `**text**`), which
-   * is how a single bracket press becomes a wikilink and a single
-   * asterisk becomes bold. */
-  handleWrapKey(e: KeyboardEvent, openCh: string, closeCh: string, onUpgrade?: () => void) {
+  /** Shared by the `[`/`*` keydown handlers below and by onBeforeInput's
+   * mobile fallback — wraps a selection (or, with no selection,
+   * auto-closes a pair with the caret in between); pressing the same key
+   * again immediately upgrades a single wrap into a double one
+   * (`[text]` -> `[[text]]`, `*text*` -> `**text**`), which is how a
+   * single bracket press becomes a wikilink and a single asterisk becomes
+   * bold. Takes KeyboardEvent | InputEvent since both call sites just need
+   * preventDefault(). */
+  handleWrapKey(e: KeyboardEvent | InputEvent, openCh: string, closeCh: string, onUpgrade?: () => void) {
     const s = this.singleLineSelection();
     if (s) {
       e.preventDefault();

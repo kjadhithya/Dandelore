@@ -37,6 +37,30 @@ export function linksOf(n: Note): string[] {
   return [...new Set(m.map((x) => x.slice(2, -2).trim()))];
 }
 
+/** [[Title]] links store the target's title as literal text, not a stable
+ * id (see linksOf above, which resolves backlinks the same way) — so
+ * renaming a note doesn't retroactively touch anything that already
+ * pointed at its old title. Without this, a rename silently breaks every
+ * existing [[OldTitle]] reference into a "missing" link. Matches
+ * case-insensitively, same as linksOf/hasNote already do when resolving a
+ * link, so a rewrite only fires where the app would already have
+ * considered the link resolved. */
+function renameNoteReferences(notes: Note[], oldTitle: string, newTitle: string): Note[] {
+  const old = oldTitle.trim().toLowerCase();
+  const next = newTitle.trim();
+  if (!old || old === next.toLowerCase()) return notes;
+  let changed = false;
+  const result = notes.map((n) => {
+    const nc = n.content.replace(/\[\[([^\]]+)\]\]/g, (whole, inner: string) =>
+      inner.trim().toLowerCase() === old ? "[[" + next + "]]" : whole,
+    );
+    if (nc === n.content) return n;
+    changed = true;
+    return { ...n, content: nc };
+  });
+  return changed ? result : notes;
+}
+
 export function sortNotes(arr: Note[], sort: SortKey): Note[] {
   const a = [...arr];
   const by: Record<SortKey, (x: Note, y: Note) => number> = {
@@ -138,6 +162,7 @@ export interface VaultStore extends VaultState {
   deleteCurrent: () => void;
   toggleBookmark: (id: string) => void;
   onTitle: (v: string) => void;
+  commitTitleRename: (id: string, oldTitle: string) => void;
   setNoteContent: (id: string, content: string) => void;
 
   // layout toggles
@@ -729,6 +754,15 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     const id = get().curId();
     const iso = new Date().toISOString();
     set((s) => ({ notes: s.notes.map((n) => (n.id === id ? { ...n, title: v, modified: iso } : n)) }));
+  },
+  // Called once a title edit is done (blur), not per-keystroke like
+  // onTitle above — rewriting [[OldTitle]] references on every keystroke
+  // would rewrite them to each half-typed intermediate title instead of
+  // the final one.
+  commitTitleRename: (id, oldTitle) => {
+    const note = get().notes.find((n) => n.id === id);
+    if (!note) return;
+    set((s) => ({ notes: renameNoteReferences(s.notes, oldTitle, note.title) }));
   },
   setNoteContent: (id, content) => {
     content = normalizeLineEndings(content);
