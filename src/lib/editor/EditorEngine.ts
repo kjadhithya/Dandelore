@@ -117,6 +117,18 @@ export class EditorEngine {
     });
     ed.addEventListener("click", (e) => this.onClick(e));
     ed.addEventListener("contextmenu", (e) => this.onContextMenu(e));
+    // contextmenu is an unreliable way to reach Cut/Copy/Paste on mobile —
+    // iOS Safari in particular never fires it for a plain text-selection
+    // long-press at all (only for links/images), so the whole custom menu
+    // was simply unreachable there once a selection existed. touchend only
+    // ever fires from an actual touch, so this is naturally scoped to
+    // touch devices without needing a separate mobile check — a short
+    // delay lets the OS-level selection-handle drag finish settling before
+    // reading it, since some mobile browsers report it mid-update right at
+    // touchend itself.
+    ed.addEventListener("touchend", () => {
+      setTimeout(() => this.maybeShowSelectionMenu(), 60);
+    });
     ed.addEventListener("compositionend", () => {
       this.rebuildAll();
       this.commit();
@@ -836,6 +848,24 @@ export class EditorEngine {
 
   closeCtxMenu() {
     this.deps.onCtxMenuChange(null);
+  }
+
+  /** touchend fallback (see attach()) — shows the same Cut/Copy/Paste/
+   * Paragraph menu onContextMenu shows on right-click, anchored under the
+   * current selection instead of the click point. No-ops silently if
+   * there's no real (non-collapsed) selection inside the editor, so a
+   * plain tap-to-place-caret never triggers it. */
+  maybeShowSelectionMenu() {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount || !this.ed) return;
+    const rng = sel.getRangeAt(0);
+    if (!this.ed.contains(rng.startContainer) || !this.ed.contains(rng.endContainer)) return;
+    let l1: Node | null = rng.startContainer;
+    while (l1 && l1.parentNode !== this.ed) l1 = l1.parentNode;
+    if (!l1) return;
+    const lineEl = l1 as HTMLDivElement;
+    const rect = rng.getBoundingClientRect();
+    this.deps.onCtxMenuChange({ kind: "para", x: rect.left, y: rect.bottom + 8, line: lineEl, blockKind: this.blockKindOf(lineEl.textContent || "") });
   }
 
   /** Deletes whatever's currently selected, merging the two ends together
