@@ -548,12 +548,24 @@ export class EditorEngine {
       const text = line.textContent || "";
       const alreadySingle =
         text[lo - 1] === openCh && text[lo - 2] !== openCh && text[hi] === closeCh && text[hi + 1] !== closeCh;
-      let nt: string;
       if (alreadySingle) {
-        nt = text.slice(0, lo - 1) + openCh + openCh + text.slice(lo, hi) + closeCh + closeCh + text.slice(hi + 1);
-      } else {
-        nt = text.slice(0, lo) + openCh + text.slice(lo, hi) + closeCh + text.slice(hi);
+        const nt = text.slice(0, lo - 1) + openCh + openCh + text.slice(lo, hi) + closeCh + closeCh + text.slice(hi + 1);
+        this.updateLine(line, nt);
+        this.setActive(line);
+        // Selecting existing text and wrapping it is a one-shot "make this
+        // a link" action — the title is exactly what was already selected,
+        // there's nothing left to search or pick. Calling onUpgrade here
+        // (as the fresh-[[-while-typing case below does) reopened the
+        // autocomplete over text that had just been converted, hiding it
+        // behind a suggestions list the user never asked for.
+        // nt inserted 2 chars before lo and 2 after hi, so the closing pair
+        // now ends at hi + 3 (only single-char open/close reach this branch —
+        // the "already wrapped once" check above compares text[i] === openCh).
+        this.setCol(line, hi + 3);
+        this.commit();
+        return;
       }
+      const nt = text.slice(0, lo) + openCh + text.slice(lo, hi) + closeCh + text.slice(hi);
       this.updateLine(line, nt);
       this.setActive(line);
       this.selectRange(line, lo + 1, hi + 1);
@@ -753,6 +765,12 @@ export class EditorEngine {
         const pos = this.caretScreenPos();
         const suggestions = this.deps.getLinkSuggestions(between);
         this.popup = { type: "link", query: between, pos, suggestions, activeIdx: 0 };
+        // The autocomplete and the Cut/Copy/Paste/Paragraph menu are
+        // independent bits of React state — nothing stopped both from being
+        // open at once (e.g. a leftover ctxMenu from an earlier long-press
+        // while this popup opens from typing), which stacked two overlapping
+        // panels over the text the user was trying to see.
+        this.deps.onCtxMenuChange(null);
         this.deps.onPopupChange(this.popup);
         return;
       }
@@ -765,6 +783,7 @@ export class EditorEngine {
       const pos = this.caretScreenPos();
       const suggestions = this.deps.getTagSuggestions(tagMatch[2]);
       this.popup = { type: "tag", query: tagMatch[2], pos, suggestions, activeIdx: 0 };
+      this.deps.onCtxMenuChange(null);
       this.deps.onPopupChange(this.popup);
       return;
     }
@@ -862,7 +881,7 @@ export class EditorEngine {
     const t = e.target as HTMLElement;
     const wl = t.closest && (t.closest("[data-wikilink]") as HTMLElement | null);
     if (wl) {
-      this.deps.onCtxMenuChange({ kind: "link", x: e.clientX, y: e.clientY, title: wl.getAttribute("data-wikilink") || "" });
+      this.showCtxMenu({ kind: "link", x: e.clientX, y: e.clientY, title: wl.getAttribute("data-wikilink") || "" });
       return;
     }
     const lineEl = t.closest && (t.closest(".ln") as HTMLDivElement | null);
@@ -870,11 +889,20 @@ export class EditorEngine {
       this.deps.onCtxMenuChange(null);
       return;
     }
-    this.deps.onCtxMenuChange({ kind: "para", x: e.clientX, y: e.clientY, line: lineEl, blockKind: this.blockKindOf(lineEl.textContent || "") });
+    this.showCtxMenu({ kind: "para", x: e.clientX, y: e.clientY, line: lineEl, blockKind: this.blockKindOf(lineEl.textContent || "") });
   }
 
   closeCtxMenu() {
     this.deps.onCtxMenuChange(null);
+  }
+
+  // Mirrors the onCtxMenuChange(null) calls detectLink() makes before
+  // opening its own popup — the autocomplete and this menu are independent
+  // React state, so without this a leftover one from an earlier interaction
+  // could stay open underneath/behind the other.
+  private showCtxMenu(ctx: NonNullable<CtxMenuState>) {
+    if (this.popup) this.closePopup();
+    this.deps.onCtxMenuChange(ctx);
   }
 
   /** touchend fallback (see attach()) — shows the same Cut/Copy/Paste/
@@ -892,7 +920,7 @@ export class EditorEngine {
     if (!l1) return;
     const lineEl = l1 as HTMLDivElement;
     const rect = rng.getBoundingClientRect();
-    this.deps.onCtxMenuChange({ kind: "para", x: rect.left, y: rect.bottom + 8, line: lineEl, blockKind: this.blockKindOf(lineEl.textContent || "") });
+    this.showCtxMenu({ kind: "para", x: rect.left, y: rect.bottom + 8, line: lineEl, blockKind: this.blockKindOf(lineEl.textContent || "") });
   }
 
   /** Deletes whatever's currently selected, merging the two ends together

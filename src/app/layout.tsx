@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono, Spectral, Inter, Lora } from "next/font/google";
 import "./globals.css";
 
@@ -37,6 +37,17 @@ const lora = Lora({
 export const metadata: Metadata = {
   title: "Dandelore",
   description: "A personal, cloud-synced knowledge base.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Without this, mobile browsers default to "resizes-visual" (or just
+  // overlay the keyboard) — the layout viewport, and therefore 100dvh,
+  // never actually shrinks when the keyboard opens, so nothing sized with
+  // dvh had anything to respond to. This makes the keyboard genuinely
+  // resize the page layout instead of just covering the bottom of it.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
