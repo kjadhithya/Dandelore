@@ -403,8 +403,14 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     const id = get().curId();
     return get().notes.find((n) => n.id === id);
   },
+  // Trimmed on both sides, not just the search term — a stored title with
+  // stray leading/trailing whitespace (the title field never trims on its
+  // own) would otherwise silently fail to match an otherwise-identical
+  // [[link]] (whose text is trimmed when parsed), making openOrCreate
+  // think the note doesn't exist and create a duplicate instead of
+  // navigating to it.
   byTitle: (t) =>
-    get().notes.find((n) => n.title.toLowerCase() === String(t).toLowerCase()),
+    get().notes.find((n) => n.title.trim().toLowerCase() === String(t).trim().toLowerCase()),
   allTags: () => {
     const set2 = new Set<string>();
     get().notes.forEach((n) => noteTags(n).forEach((t) => set2.add(t)));

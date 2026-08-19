@@ -150,7 +150,6 @@ export function VaultShell() {
       data-vtheme={THEME_KEY(theme)}
       style={
         {
-          height: "100vh",
           width: "100vw",
           overflow: "hidden",
           background: "var(--bg)",

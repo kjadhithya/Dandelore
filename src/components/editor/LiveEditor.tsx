@@ -48,26 +48,49 @@ function ParagraphMenuItem({ active, onClick, children }: { active?: boolean; on
   );
 }
 
-const submenuStyle = (flip: boolean): React.CSSProperties => ({
-  position: "absolute",
-  [flip ? "right" : "left"]: "100%",
-  top: -6,
-  minWidth: 190,
-  background: "var(--panel)",
-  border: "1px solid var(--border)",
-  borderRadius: 10,
-  boxShadow: "0 18px 44px -12px rgba(0,0,0,.45)",
-  padding: 5,
-  zIndex: 63,
-});
+// On a narrow (mobile-width) screen the flyout can fail to fit on *either*
+// side of the row that opens it — flipping it left doesn't help if there
+// isn't 190px to spare there either. "below" drops it into normal flow
+// under the row instead of beside it, which always fits since it's no
+// wider than the parent menu it's already nested in.
+type SubmenuPlacement = "left" | "right" | "below";
+const submenuStyle = (placement: SubmenuPlacement): React.CSSProperties =>
+  placement === "below"
+    ? {
+        position: "absolute",
+        left: 0,
+        top: "100%",
+        marginTop: 4,
+        minWidth: 190,
+        maxHeight: 260,
+        overflowY: "auto",
+        background: "var(--panel)",
+        border: "1px solid var(--border)",
+        borderRadius: 10,
+        boxShadow: "0 18px 44px -12px rgba(0,0,0,.45)",
+        padding: 5,
+        zIndex: 63,
+      }
+    : {
+        position: "absolute",
+        [placement === "left" ? "right" : "left"]: "100%",
+        top: -6,
+        minWidth: 190,
+        background: "var(--panel)",
+        border: "1px solid var(--border)",
+        borderRadius: 10,
+        boxShadow: "0 18px 44px -12px rgba(0,0,0,.45)",
+        padding: 5,
+        zIndex: 63,
+      };
 
 /** Right-click "Paragraph" flyout — mirrors the block-type submenu shown in
  * native rich-text editors (Bullet/Numbered/Task list, headings, Body,
  * Quote), but drives EditorEngine.setBlockType against markdown line
  * prefixes instead of native execCommand formatting. */
-function ParagraphSubmenu({ blockKind, onApply, flip }: { blockKind: BlockKind; onApply: (kind: BlockKind) => void; flip: boolean }) {
+function ParagraphSubmenu({ blockKind, onApply, placement }: { blockKind: BlockKind; onApply: (kind: BlockKind) => void; placement: SubmenuPlacement }) {
   return (
-    <div onClick={(e) => e.stopPropagation()} style={submenuStyle(flip)}>
+    <div onClick={(e) => e.stopPropagation()} style={submenuStyle(placement)}>
       {BLOCK_LABELS.map(({ kind, label }) => (
         <ParagraphMenuItem key={kind} active={blockKind === kind} onClick={() => onApply(kind)}>
           {label}
@@ -87,7 +110,7 @@ function ParagraphSubmenu({ blockKind, onApply, flip }: { blockKind: BlockKind; 
   );
 }
 
-function ParaMenu({ blockKind, onApply, flip }: { blockKind: BlockKind; onApply: (kind: BlockKind) => void; flip: boolean }) {
+function ParaMenu({ blockKind, onApply, placement }: { blockKind: BlockKind; onApply: (kind: BlockKind) => void; placement: SubmenuPlacement }) {
   const [open, setOpen] = useState(false);
   return (
     <div
@@ -104,7 +127,7 @@ function ParaMenu({ blockKind, onApply, flip }: { blockKind: BlockKind; onApply:
     >
       <span style={{ flex: 1 }}>Paragraph</span>
       <span style={{ color: "var(--faint)" }}>›</span>
-      {open && <ParagraphSubmenu blockKind={blockKind} onApply={onApply} flip={flip} />}
+      {open && <ParagraphSubmenu blockKind={blockKind} onApply={onApply} placement={placement} />}
     </div>
   );
 }
@@ -245,8 +268,24 @@ export function LiveEditor({ note }: { note: Note }) {
   const POPUP_MAX_W = 360;
   const POPUP_MAX_H = 280;
   const MARGIN = 8;
-  const popupLeft = popup ? Math.min(Math.max(MARGIN, popup.pos.x), Math.max(MARGIN, window.innerWidth - POPUP_MAX_W - MARGIN)) : 0;
-  const popupTop = popup ? Math.min(popup.pos.y, Math.max(MARGIN, window.innerHeight - POPUP_MAX_H - MARGIN)) : 0;
+  // window.innerHeight is the layout viewport, which on mobile Safari
+  // stays at its largest size and doesn't shrink for the virtual
+  // keyboard — clamping against it left the popup positioned as if the
+  // keyboard-covered area were still visible. visualViewport tracks what's
+  // actually on screen.
+  const vvw = typeof window !== "undefined" ? window.visualViewport?.width ?? window.innerWidth : 0;
+  const vvh = typeof window !== "undefined" ? window.visualViewport?.height ?? window.innerHeight : 0;
+  const popupLeft = popup ? Math.min(Math.max(MARGIN, popup.pos.x), Math.max(MARGIN, vvw - POPUP_MAX_W - MARGIN)) : 0;
+  const popupTop = popup ? Math.min(popup.pos.y, Math.max(MARGIN, vvh - POPUP_MAX_H - MARGIN)) : 0;
+  const CTX_MENU_W = 194;
+  const SUBMENU_W = 190;
+  // ctxMenu.x comes straight from a click/selection coordinate (e.clientX or
+  // a selection rect's left edge) with no regard for viewport width — on a
+  // narrow screen, text selected near the right edge pushed the whole menu
+  // half off-screen. Clamped the same way popupLeft already is above.
+  const ctxMenuLeft = ctxMenu ? Math.min(Math.max(MARGIN, ctxMenu.x), Math.max(MARGIN, vvw - CTX_MENU_W - MARGIN)) : 0;
+  const submenuPlacement: SubmenuPlacement =
+    ctxMenuLeft + CTX_MENU_W + SUBMENU_W <= vvw ? "right" : ctxMenuLeft - SUBMENU_W >= 0 ? "left" : "below";
 
   return (
     <div style={{ position: "relative" }}>
@@ -318,7 +357,8 @@ export function LiveEditor({ note }: { note: Note }) {
             style={{
               ...menuWrapStyle(ctxMenu.x, ctxMenu.y, 194),
               position: "fixed",
-              top: Math.min(ctxMenu.y, Math.max(8, window.innerHeight - (ctxMenu.kind === "para" ? 636 : 130) - 8)),
+              left: ctxMenuLeft,
+              top: Math.min(ctxMenu.y, Math.max(8, vvh - (ctxMenu.kind === "para" ? 636 : 130) - 8)),
             }}
           >
             {ctxMenu.kind === "para" ? (
@@ -363,7 +403,7 @@ export function LiveEditor({ note }: { note: Note }) {
                     engineRef.current!.setBlockType(ctxMenu.line, kind);
                     setCtxMenu(null);
                   }}
-                  flip={ctxMenu.x + 194 + 190 > window.innerWidth}
+                  placement={submenuPlacement}
                 />
               </>
             ) : (

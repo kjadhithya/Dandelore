@@ -61,6 +61,17 @@ select:focus {
 
 /* ---------- theme tokens ---------- */
 .vault {
+  /* 100vh is the *largest* possible viewport on mobile Safari/Chrome —
+   * it does not shrink when the virtual keyboard opens, so a fixed-height
+   * shell sized with it left whatever was scrolled to the bottom (a
+   * freshly-created line after Enter, an autocomplete popup positioned
+   * off the caret) sitting behind the keyboard instead of in the area
+   * that actually stayed visible. 100dvh tracks the real visible
+   * viewport and is the second declaration here on purpose — a browser
+   * that doesn't understand dvh ignores it and keeps the 100vh above,
+   * one that does overrides it, no JS feature-detection needed. */
+  height: 100vh;
+  height: 100dvh;
   /* Base text/icon color for anything that doesn't set its own — without
    * this, currentColor (used by every icon's stroke) falls through to the
    * browser's default black regardless of theme, e.g. a dark-mode search

@@ -68,6 +68,14 @@ export class EditorEngine {
   // post-reflow coordinate for word selection.
   lastMouseDown: { line: HTMLDivElement; col: number; x: number; y: number; t: number } | null = null;
   ctxMenu: CtxMenuState = null;
+  // Whether touch is the *primary* input, not merely present — matchMedia
+  // (pointer: coarse) is true for phones/tablets but false on a
+  // touchscreen laptop whose primary input is still a mouse/trackpad,
+  // unlike navigator.maxTouchPoints > 0, which would wrongly treat that
+  // hybrid device as touch-only and take away its desktop right-click
+  // menu entirely (touchend, which is what mobile falls back to, never
+  // fires from a mouse). This is what onContextMenu below branches on.
+  isTouchDevice: boolean = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
   deps: EditorEngineDeps;
 
   constructor(deps: EditorEngineDeps) {
@@ -224,23 +232,32 @@ export class EditorEngine {
     let c = 0;
     let tn: Node | null;
     let last: Node | null = null;
+    let placed = false;
     while ((tn = walker.nextNode())) {
       last = tn;
       const len = (tn as Text).data.length;
       if (c + len >= col) {
         rng.setStart(tn, Math.max(0, col - c));
-        rng.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(rng);
-        return;
+        placed = true;
+        break;
       }
       c += len;
     }
-    if (last) rng.setStart(last, (last as Text).data.length);
-    else rng.setStart(line, 0);
+    if (!placed) {
+      if (last) rng.setStart(last, (last as Text).data.length);
+      else rng.setStart(line, 0);
+    }
     rng.collapse(true);
     sel.removeAllRanges();
     sel.addRange(rng);
+    // A programmatic Selection change (unlike native typing) doesn't
+    // trigger the browser's own "keep the caret visible" scrolling — most
+    // noticeable on mobile, where Enter creating a new line left it
+    // sitting behind the virtual keyboard since nothing ever scrolled it
+    // into the shrunk visible area. block:"nearest" only moves the
+    // minimum needed, so this is a no-op whenever the caret was already
+    // visible (i.e. always, on desktop).
+    line.scrollIntoView({ block: "nearest" });
   }
 
   /** Column -> DOM (node, offset), the inverse walk used by setCol — split
@@ -831,6 +848,16 @@ export class EditorEngine {
    * clicked line's current block kind, so the paragraph submenu can show
    * a checkmark next to it. */
   onContextMenu(e: MouseEvent) {
+    // On a touch device, a long-press's contextmenu and its "select this
+    // word, show the selection handles" default action are the same
+    // native gesture, not two independent things the way right-click and
+    // drag-select are on desktop — preventDefault() here was blocking
+    // selection from ever starting at all, not just suppressing a menu.
+    // Touch devices get the touchend-triggered selection menu below
+    // instead, which needs no contextmenu event and can't interfere with
+    // native selection since it only ever reads a selection that's
+    // already been made.
+    if (this.isTouchDevice) return;
     e.preventDefault();
     const t = e.target as HTMLElement;
     const wl = t.closest && (t.closest("[data-wikilink]") as HTMLElement | null);
