@@ -322,6 +322,26 @@ export class EditorEngine {
       this.deps.onPasteFiles(files);
       return;
     }
+    // Pasting a bare URL over a selection is the standard "turn this text
+    // into a link" gesture in every rich text editor — without this the
+    // selection was just replaced by the raw URL, losing the more readable
+    // label the user had already written and losing the selection itself.
+    const plainUrl = e.clipboardData?.getData("text/plain")?.trim();
+    if (plainUrl && /^https?:\/\/\S+$/.test(plainUrl)) {
+      const s = this.singleLineSelection();
+      if (s) {
+        e.preventDefault();
+        const { line, lo, hi } = s;
+        const text = line.textContent || "";
+        const label = text.slice(lo, hi);
+        const nt = text.slice(0, lo) + "[" + label + "](" + plainUrl + ")" + text.slice(hi);
+        this.updateLine(line, nt);
+        this.setActive(line);
+        this.setCol(line, lo + label.length + plainUrl.length + 4);
+        this.commit();
+        return;
+      }
+    }
     // A source with real markup (a webpage, Google Doc, Notion, Word) puts
     // a text/html entry on the clipboard alongside the plain-text one. The
     // browser's default paste would insert that raw HTML into the
