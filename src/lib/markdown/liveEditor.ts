@@ -37,9 +37,15 @@ export function inlineLive(s: string, hasNote: TitleResolver): string {
       "</a><span class=\"m\">]]</span>"
     );
   });
+  // Unlike the other markup spans (headings, **bold**, [[wikilinks]]...),
+  // the "[" and "](url)" here use "elm" instead of "m" — those reveal their
+  // raw syntax on the active line so it's editable, but a link's URL is
+  // long, isn't something anyone edits character-by-character inline, and
+  // just cluttered the line while typing right next to it. "elm" stays
+  // hidden regardless of active state; only the label itself is visible.
   s = s.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<span class="m">[</span><a class="exlink" data-ext="1" href="$2">$1</a><span class="m">]($2)</span>',
+    '<span class="elm">[</span><a class="exlink" data-ext="1" href="$2">$1</a><span class="elm">]($2)</span>',
   );
   s = s.replace(/\*\*([^*]+)\*\*/g, '<span class="m">**</span><strong>$1</strong><span class="m">**</span>');
   s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<span class="m">*</span><em>$2</em><span class="m">*</span>');
