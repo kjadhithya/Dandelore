@@ -218,7 +218,9 @@ export interface VaultStore extends VaultState {
   closeCatCtx: () => void;
   catCtxRename: () => void;
   catCtxDelete: () => void;
-  deleteCategory: (name: string) => void;
+  requestDeleteCategory: (name: string, onDeleted?: () => void) => void;
+  closeCatDeleteRequest: () => void;
+  resolveCategoryDelete: (mode: "keep" | "move" | "delete", targetCategory?: string) => void;
   renameCategory: (oldN: string, newN: string) => void;
   addCategoryTop: (name: string) => void;
   togglePinCategory: (name: string) => void;
@@ -366,6 +368,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
 
   catCtx: null,
   catRenaming: null,
+  catDeleteRequest: null,
 
   linkQuery: null,
   tagAcQuery: null,
@@ -979,15 +982,57 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   },
   catCtxDelete: () => {
     const name = get().catCtx?.name;
-    if (name) get().deleteCategory(name);
     set({ catCtx: null });
+    if (name) get().requestDeleteCategory(name);
   },
-  deleteCategory: (name) => {
-    set((s) => ({
-      categories: s.categories.filter((c) => c !== name),
-      pinnedCategories: s.pinnedCategories.filter((c) => c !== name),
-      notes: s.notes.map((n) => (n.category === name ? { ...n, category: "" } : n)),
-    }));
+  requestDeleteCategory: (name, onDeleted) => set({ catDeleteRequest: { name, onDeleted } }),
+  closeCatDeleteRequest: () => set({ catDeleteRequest: null }),
+  resolveCategoryDelete: (mode, targetCategory) => {
+    const req = get().catDeleteRequest;
+    if (!req) return;
+    const { name, onDeleted } = req;
+    if (mode === "delete") {
+      const ids = new Set(get().notes.filter((n) => n.category === name).map((n) => n.id));
+      set((s) => {
+        const notes = s.notes.filter((n) => !ids.has(n.id));
+        const tabs = s.tabs.map((t) => {
+          const hist = t.hist.filter((v) => !(v.kind === "note" && v.id && ids.has(v.id)));
+          if (!hist.length) return mkTab({ kind: "home" });
+          return { hist, hi: Math.min(t.hi, hist.length - 1) };
+        });
+        let split = s.split;
+        if (split) {
+          const st = split.tabs
+            .map((t) => ({ hist: t.hist.filter((v) => !(v.kind === "note" && v.id && ids.has(v.id))), hi: 0 }))
+            .filter((t) => t.hist.length);
+          split = st.length ? { ...split, tabs: st, active: Math.min(split.active, st.length - 1) } : null;
+        }
+        return {
+          notes,
+          tabs,
+          split,
+          categories: s.categories.filter((c) => c !== name),
+          pinnedCategories: s.pinnedCategories.filter((c) => c !== name),
+          noteDeleteEvent: ids.size ? { ids: [...ids] } : s.noteDeleteEvent,
+          catDeleteRequest: null,
+        };
+      });
+    } else if (mode === "move" && targetCategory) {
+      set((s) => ({
+        notes: s.notes.map((n) => (n.category === name ? { ...n, category: targetCategory } : n)),
+        categories: s.categories.filter((c) => c !== name),
+        pinnedCategories: s.pinnedCategories.filter((c) => c !== name),
+        catDeleteRequest: null,
+      }));
+    } else {
+      set((s) => ({
+        categories: s.categories.filter((c) => c !== name),
+        pinnedCategories: s.pinnedCategories.filter((c) => c !== name),
+        notes: s.notes.map((n) => (n.category === name ? { ...n, category: "" } : n)),
+        catDeleteRequest: null,
+      }));
+    }
+    onDeleted?.();
   },
   renameCategory: (oldN, newN) => {
     newN = (newN || "").trim();
@@ -1374,6 +1419,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       catMenuOpen: false,
       ctxMenu: null,
       catCtx: null,
+      catDeleteRequest: null,
       sortMenuOpen: false,
       noteMenuOpen: false,
       noteMenuMove: false,
@@ -1402,6 +1448,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       folderRenaming: null,
       ctxMenu: null,
       catCtx: null,
+      catDeleteRequest: null,
       folderCtx: null,
       bulkCtx: null,
       expanded: {},

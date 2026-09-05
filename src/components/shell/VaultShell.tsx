@@ -17,6 +17,7 @@ import { QuickSwitcher } from "@/components/palette/QuickSwitcher";
 import { CommandPalette } from "@/components/palette/CommandPalette";
 import { NoteContextMenu, BulkContextMenu, FolderContextMenu, CategoryContextMenu } from "@/components/menus/ContextMenus";
 import { ConfirmDialog } from "@/components/menus/ConfirmDialog";
+import { CategoryDeleteDialog } from "@/components/categories/CategoryDeleteDialog";
 import { NewNoteIcon } from "@/components/icons/Icons";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
@@ -224,6 +225,7 @@ export function VaultShell() {
       <FolderContextMenu />
       <CategoryContextMenu />
       <ConfirmDialog />
+      <CategoryDeleteDialog />
       <SettingsModal />
       <QuickSwitcher />
       <CommandPalette />

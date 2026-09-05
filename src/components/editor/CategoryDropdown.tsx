@@ -27,8 +27,7 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
   const categories = useVaultStore((s) => s.categories);
   const addCategoryGlobal = useVaultStore((s) => s.addCategoryGlobal);
   const renameCategory = useVaultStore((s) => s.renameCategory);
-  const deleteCategory = useVaultStore((s) => s.deleteCategory);
-  const openConfirm = useVaultStore((s) => s.openConfirm);
+  const requestDeleteCategory = useVaultStore((s) => s.requestDeleteCategory);
   const { accentText } = useDerivedTheme();
   const isMobile = useIsMobile();
   const rowIconBtn = rowIconBtnStyle(isMobile);
@@ -83,12 +82,7 @@ export function CategoryDropdown({ value, onSelect }: { value: string; onSelect:
   }
 
   function handleDelete(name: string) {
-    openConfirm({
-      title: "Delete category?",
-      message: `"${name}" will be removed. Notes in this category are kept, just uncategorized.`,
-      confirmLabel: "Delete category",
-      onConfirm: () => deleteCategory(name),
-    });
+    requestDeleteCategory(name);
   }
 
   return (

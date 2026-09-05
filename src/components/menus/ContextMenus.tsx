@@ -162,19 +162,7 @@ export function CategoryContextMenu() {
     <div onClick={() => s.closeCatCtx()} onContextMenu={(e) => e.preventDefault()} style={{ position: "fixed", inset: 0, zIndex: 62 }}>
       <div onClick={(e) => e.stopPropagation()} style={menuWrapStyle(s.catCtx.x, s.catCtx.y, 150)}>
         <Item onClick={() => s.catCtxRename()}>Rename…</Item>
-        <Item
-          danger
-          onClick={() => {
-            const name = s.catCtx!.name;
-            s.openConfirm({
-              title: "Delete category?",
-              message: `"${name}" will be removed. Notes in this category are kept, just uncategorized.`,
-              confirmLabel: "Delete category",
-              onConfirm: () => s.catCtxDelete(),
-              onCancel: () => s.closeCatCtx(),
-            });
-          }}
-        >
+        <Item danger onClick={() => s.catCtxDelete()}>
           Delete category
         </Item>
       </div>

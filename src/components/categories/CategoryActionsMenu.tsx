@@ -55,15 +55,7 @@ export function CategoryActionsMenu({ name, onClose, onDeleted }: { name: string
       <div
         onClick={() => {
           onClose();
-          s.openConfirm({
-            title: "Delete category?",
-            message: `"${name}" will be removed. Notes in this category are kept, just uncategorized.`,
-            confirmLabel: "Delete category",
-            onConfirm: () => {
-              s.deleteCategory(name);
-              onDeleted?.();
-            },
-          });
+          s.requestDeleteCategory(name, onDeleted);
         }}
         style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 40, padding: "9px 11px", fontSize: 13, color: "#c15a3d", cursor: "pointer", borderRadius: 6 }}
       >

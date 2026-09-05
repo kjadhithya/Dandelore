@@ -64,6 +64,11 @@ export interface CatCtx {
   y: number;
 }
 
+export interface CatDeleteRequest {
+  name: string;
+  onDeleted?: () => void;
+}
+
 export interface ConfirmDialogState {
   title: string;
   message: string;
@@ -145,6 +150,7 @@ export interface VaultState {
 
   catCtx: CatCtx | null;
   catRenaming: string | null;
+  catDeleteRequest: CatDeleteRequest | null;
 
   linkQuery: string | null;
   tagAcQuery: string | null;
