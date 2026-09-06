@@ -7,9 +7,17 @@
 export function htmlToMarkdown(html: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const md = childrenToMd(doc.body);
+  // Each block handler below (div/p/heading/list/etc.) wraps itself with a
+  // leading and trailing newline so it can't run together with a sibling —
+  // but that means two adjacent blocks each contribute one, stacking into a
+  // blank line between every single line of the source. This app has no
+  // "blank line separates paragraphs" convention (every line, including a
+  // literal empty one, renders as its own line — see renderLineLive), so
+  // collapsing any run of newlines down to exactly one is what actually
+  // reproduces the source's line breaks instead of inserting new gaps.
   return md
     .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\n{2,}/g, "\n")
     .trim();
 }
 

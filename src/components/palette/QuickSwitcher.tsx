@@ -10,7 +10,17 @@ export function QuickSwitcher() {
   if (!s.quickOpen) return null;
 
   const qq = s.quickQuery.trim().toLowerCase();
-  const qsrc = qq ? s.notes.filter((n) => n.title.toLowerCase().includes(qq) || n.content.toLowerCase().includes(qq)) : [...s.notes].reverse();
+  // A title match is what someone typing a query is almost always looking
+  // for, but sorting purely by array order let common-word content matches
+  // (e.g. "rough" is a substring of "through"/"thorough") crowd out the top
+  // 8 slots ahead of a note whose *title* actually contains the query —
+  // ranking title matches first keeps that from getting cut off below the
+  // slice.
+  const qsrc = qq
+    ? s.notes
+        .filter((n) => n.title.toLowerCase().includes(qq) || n.content.toLowerCase().includes(qq))
+        .sort((a, b) => Number(!a.title.toLowerCase().includes(qq)) - Number(!b.title.toLowerCase().includes(qq)))
+    : [...s.notes].reverse();
   const results = qsrc.slice(0, 8).map((n) => {
     let sub = n.content.replace(/^#\s.*$/m, "").replace(/[#*`>[\]]/g, "").replace(/\n+/g, " ").trim();
     sub = sub.slice(0, 60) || "Empty note";
