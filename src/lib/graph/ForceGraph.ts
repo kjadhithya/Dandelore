@@ -281,16 +281,26 @@ export class ForceGraph {
     const notes = this.deps.getNotes();
     const categories = this.deps.getCategories();
     const rand = () => (Math.random() - 0.5) * 260;
+    // Reuse each node's existing position/velocity instead of re-randomizing
+    // it — buildData() re-runs on every notes-array change (including
+    // editing a totally unrelated note's content, e.g. in the other split
+    // pane), and rebuilding from scratch every time made the graph visibly
+    // jump/reshuffle continuously while someone was just typing elsewhere.
+    // Only a node that's genuinely new (never existed before) gets a fresh
+    // random spot.
+    const prev: Record<string, { x: number; y: number; vx: number; vy: number }> = {};
+    this.nodes.forEach((n) => (prev[n.id] = { x: n.x, y: n.y, vx: n.vx, vy: n.vy }));
+    const posFor = (id: string) => prev[id] || { x: rand(), y: rand(), vx: 0, vy: 0 };
     const idOf: Record<string, number> = {};
     const nodes: GraphNode[] = [];
     notes.forEach((n) => {
       idOf[n.id] = nodes.length;
-      nodes.push({ id: n.id, title: n.title, empty: !n.content || !n.content.trim(), kind: "note", x: rand(), y: rand(), vx: 0, vy: 0 });
+      nodes.push({ id: n.id, title: n.title, empty: !n.content || !n.content.trim(), kind: "note", ...posFor(n.id) });
     });
     const catNodeId = (name: string) => "cat:" + name;
     categories.forEach((c) => {
       idOf[catNodeId(c)] = nodes.length;
-      nodes.push({ id: catNodeId(c), title: c, empty: false, kind: "category", x: rand(), y: rand(), vx: 0, vy: 0 });
+      nodes.push({ id: catNodeId(c), title: c, empty: false, kind: "category", ...posFor(catNodeId(c)) });
     });
 
     const links: [number, number][] = [];
@@ -316,7 +326,7 @@ export class ForceGraph {
           pid = "phantom:" + key;
           phantomIdOf[key] = pid;
           idOf[pid] = nodes.length;
-          nodes.push({ id: pid, title: t.trim(), empty: false, kind: "phantom", x: rand(), y: rand(), vx: 0, vy: 0 });
+          nodes.push({ id: pid, title: t.trim(), empty: false, kind: "phantom", ...posFor(pid) });
           nb[pid] = new Set();
         }
         links.push([idOf[n.id], idOf[pid]]);

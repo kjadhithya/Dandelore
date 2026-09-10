@@ -220,19 +220,22 @@ export class EditorEngine {
   }
 
   colOf(line: HTMLElement, node: Node, offset: number): number {
-    if (node === line) {
-      let c = 0;
-      for (let i = 0; i < offset && i < line.childNodes.length; i++) c += (line.childNodes[i].textContent || "").length;
-      return c;
-    }
-    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
-    let c = 0;
-    let tn: Node | null;
-    while ((tn = walker.nextNode())) {
-      if (tn === node) return c + offset;
-      c += (tn as Text).data.length;
-    }
-    return c;
+    // A Range boundary's container isn't always the text node it looks
+    // like it should be — selectNodeContents(el) and some browsers'
+    // boundary-of-an-element-edge cases hand back the *element* with offset
+    // as a childNodes index instead. The old text-node-identity tree-walk
+    // only ever matched a real Text node, so an element container silently
+    // fell through to "end of line" (returning the total length) instead
+    // of the actual position — e.g. reselecting a bolded word and toggling
+    // Cmd+B back off measured the selection as collapsed-at-the-end and
+    // appended a fresh **wrap instead of removing the existing one.
+    // Measuring via a Range's own stringified length is exactly "how many
+    // characters precede this point" regardless of what kind of node the
+    // boundary was expressed against.
+    const r = document.createRange();
+    r.setStart(line, 0);
+    r.setEnd(node, offset);
+    return r.toString().length;
   }
 
   setCol(line: HTMLElement, col: number) {
