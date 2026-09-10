@@ -67,6 +67,17 @@ export class EditorEngine {
   // onEditorMouseDown/onDblClick) sidesteps that by never trusting a
   // post-reflow coordinate for word selection.
   lastMouseDown: { line: HTMLDivElement; col: number; x: number; y: number; t: number } | null = null;
+  // Set right after handleWrapKey does a single-char wrap (either around a
+  // selection or as a fresh auto-closed empty pair), so a same-key repeat
+  // can upgrade it to the double-char form using the position *we* recorded
+  // instead of re-reading the live DOM selection. Re-deriving from
+  // window.getSelection() on the second press was fragile — anything that
+  // collapses the selection between the two keystrokes (observed after
+  // wrapping a multi-word selection) made the upgrade logic mistake the
+  // bare caret for a fresh empty pair and produce e.g. "****text" instead
+  // of "**text**". Cleared implicitly by the 600ms window plus re-checking
+  // the remembered text is still exactly what was left there.
+  pendingWrap: { line: HTMLDivElement; lo: number; hi: number; ch: string; t: number } | null = null;
   ctxMenu: CtxMenuState = null;
   // Whether touch is the *primary* input, not merely present — matchMedia
   // (pointer: coarse) is true for phones/tablets but false on a
@@ -354,9 +365,14 @@ export class EditorEngine {
     // white-space:pre-wrap — already preserves its line breaks correctly.
     const html = e.clipboardData?.getData("text/html");
     if (html && html.trim()) {
-      const ci = this.caretInfo();
+      e.preventDefault();
+      // A selection has to be deleted *before* inserting, not just left
+      // sitting next to the new content — otherwise pasting over selected
+      // text left the old text and the pasted text both in the note
+      // instead of the pasted text replacing the selection.
+      const deleted = this.deleteCurrentSelection();
+      const ci = deleted || this.caretInfo();
       if (ci) {
-        e.preventDefault();
         const md = htmlToMarkdown(html);
         this.insertMultilineText(ci, md);
       }
@@ -561,54 +577,76 @@ export class EditorEngine {
    * bold. Takes KeyboardEvent | InputEvent since both call sites just need
    * preventDefault(). */
   handleWrapKey(e: KeyboardEvent | InputEvent, openCh: string, closeCh: string, onUpgrade?: () => void) {
+    // A same-key repeat within 600ms of our own last single-char wrap
+    // upgrades it, using the position *that wrap recorded* rather than
+    // whatever the live selection currently reports (see pendingWrap's
+    // comment for why). text.slice() sanity-checks it's still exactly the
+    // single-wrap we left behind — anything else in between invalidates it.
+    const pw = this.pendingWrap;
+    if (pw && pw.ch === openCh && Date.now() - pw.t < 600) {
+      this.pendingWrap = null;
+      const text = pw.line.textContent || "";
+      const stillValid =
+        text.slice(pw.lo - openCh.length, pw.lo) === openCh && text.slice(pw.hi, pw.hi + closeCh.length) === closeCh;
+      if (stillValid && this.ed?.contains(pw.line)) {
+        e.preventDefault();
+        const nt =
+          text.slice(0, pw.lo - openCh.length) +
+          openCh +
+          openCh +
+          text.slice(pw.lo, pw.hi) +
+          closeCh +
+          closeCh +
+          text.slice(pw.hi + closeCh.length);
+        this.updateLine(pw.line, nt);
+        this.setActive(pw.line);
+        if (pw.lo === pw.hi) {
+          // Empty pair (fresh auto-close, nothing typed yet) — leave the
+          // caret between the now-doubled delimiters so typing lands inside.
+          this.setCol(pw.line, pw.lo + openCh.length);
+        } else {
+          // Wrapped a real selection — nothing left to type into, land
+          // right after the closing delimiter instead of re-selecting it.
+          this.setCol(pw.line, pw.hi + openCh.length + closeCh.length);
+        }
+        this.commit();
+        if (pw.lo === pw.hi && onUpgrade) onUpgrade();
+        return;
+      }
+    }
+    this.pendingWrap = null;
+
     const s = this.singleLineSelection();
     if (s) {
       e.preventDefault();
       const { line, lo, hi } = s;
       const text = line.textContent || "";
-      const alreadySingle =
-        text[lo - 1] === openCh && text[lo - 2] !== openCh && text[hi] === closeCh && text[hi + 1] !== closeCh;
-      if (alreadySingle) {
-        const nt = text.slice(0, lo - 1) + openCh + openCh + text.slice(lo, hi) + closeCh + closeCh + text.slice(hi + 1);
+      // Selecting text that's already fully wrapped (the doubled form —
+      // **bold**, [[a wikilink]]) and pressing the same key again reads as
+      // "undo this," matching the toggle-off Cmd+B/Cmd+I already have.
+      const dOpen = openCh.repeat(2),
+        dClose = closeCh.repeat(2);
+      if (text.slice(lo - dOpen.length, lo) === dOpen && text.slice(hi, hi + dClose.length) === dClose) {
+        const nt = text.slice(0, lo - dOpen.length) + text.slice(lo, hi) + text.slice(hi + dClose.length);
         this.updateLine(line, nt);
         this.setActive(line);
-        // Selecting existing text and wrapping it is a one-shot "make this
-        // a link" action — the title is exactly what was already selected,
-        // there's nothing left to search or pick. Calling onUpgrade here
-        // (as the fresh-[[-while-typing case below does) reopened the
-        // autocomplete over text that had just been converted, hiding it
-        // behind a suggestions list the user never asked for.
-        // nt inserted 2 chars before lo and 2 after hi, so the closing pair
-        // now ends at hi + 3 (only single-char open/close reach this branch —
-        // the "already wrapped once" check above compares text[i] === openCh).
-        this.setCol(line, hi + 3);
+        this.selectRange(line, lo - dOpen.length, hi - dOpen.length);
         this.commit();
         return;
       }
       const nt = text.slice(0, lo) + openCh + text.slice(lo, hi) + closeCh + text.slice(hi);
       this.updateLine(line, nt);
       this.setActive(line);
-      this.selectRange(line, lo + 1, hi + 1);
+      this.selectRange(line, lo + openCh.length, hi + openCh.length);
+      this.pendingWrap = { line, lo: lo + openCh.length, hi: hi + openCh.length, ch: openCh, t: Date.now() };
       this.commit();
-      if (onUpgrade) onUpgrade();
       return;
     }
     const ci = this.caretInfo();
     if (!ci) return;
     e.preventDefault();
-    const text = ci.line.textContent || "";
-    const betweenLoneClosed =
-      text[ci.col - 1] === openCh && text[ci.col - 2] !== openCh && text[ci.col] === closeCh && text[ci.col + 1] !== closeCh;
-    if (betweenLoneClosed) {
-      const nt = text.slice(0, ci.col - 1) + openCh + openCh + closeCh + closeCh + text.slice(ci.col + 1);
-      this.updateLine(ci.line, nt);
-      this.setActive(ci.line);
-      this.setCol(ci.line, ci.col + 1);
-      this.commit();
-      if (onUpgrade) onUpgrade();
-      return;
-    }
-    this.insertText(ci.line, ci.col, openCh + closeCh, ci.col + 1);
+    this.insertText(ci.line, ci.col, openCh + closeCh, ci.col + openCh.length);
+    this.pendingWrap = { line: ci.line, lo: ci.col + openCh.length, hi: ci.col + openCh.length, ch: openCh, t: Date.now() };
   }
 
   onKeydown(e: KeyboardEvent) {

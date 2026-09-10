@@ -239,8 +239,8 @@ export interface VaultStore extends VaultState {
 
   // undo/redo
   pushUndo: (id: string, content: string) => void;
-  undo: () => void;
-  redo: () => void;
+  undo: (id: string) => void;
+  redo: (id: string) => void;
 
   // multiselect / bulk
   toggleSelect: (id: string) => void;
@@ -1104,8 +1104,11 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     u.t = now;
     set({ _undo: { ...undo, [id]: u } });
   },
-  undo: () => {
-    const id = get().curId();
+  // Takes the note id explicitly (from the LiveEditor instance handling the
+  // keypress) rather than reading curId() — that only ever named the main
+  // pane's note, so Cmd+Z while typing in the split pane silently undid (or
+  // no-opped on) the wrong note's history instead of the one being edited.
+  undo: (id) => {
     if (!id) return;
     const u = get()._undo[id];
     if (!u || !u.stack.length) return;
@@ -1115,8 +1118,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     const prev = u.stack.pop()!;
     set((s) => ({ notes: s.notes.map((x) => (x.id === id ? { ...x, content: prev } : x)) }));
   },
-  redo: () => {
-    const id = get().curId();
+  redo: (id) => {
     if (!id) return;
     const u = get()._undo[id];
     if (!u || !u.redo.length) return;
