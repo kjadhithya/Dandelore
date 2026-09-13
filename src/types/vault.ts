@@ -69,6 +69,11 @@ export interface CatDeleteRequest {
   onDeleted?: () => void;
 }
 
+export interface FolderDeleteRequest {
+  name: string;
+  onDeleted?: () => void;
+}
+
 export interface ConfirmDialogState {
   title: string;
   message: string;
@@ -91,6 +96,7 @@ export interface VaultState {
   folderRenameDraft: string;
   folderCtx: FolderCtx | null;
   draggingFolder: string | null;
+  folderDeleteRequest: FolderDeleteRequest | null;
 
   categories: string[];
   pinnedCategories: string[];

@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useVaultStore, sortNotes } from "@/lib/store/useVaultStore";
 import { SearchIcon, SortIcon, MoreIcon, PinIcon } from "@/components/icons/Icons";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
@@ -42,6 +42,11 @@ export function CategoriesView() {
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
+  // right:0 off this button overflowed past the left edge on a narrow
+  // viewport — measuring and clamping into the visible viewport instead
+  // keeps the dropdown on-screen at any width.
+  const sortBtnRef = useRef<HTMLDivElement | null>(null);
+  const [sortPos, setSortPos] = useState<{ top: number; left: number } | null>(null);
   const [catOrder, setCatOrder] = useState<CatOrder>(readStoredCatOrder);
 
   useEffect(() => {
@@ -114,18 +119,32 @@ export function CategoriesView() {
               </div>
             )}
           </div>
-          <div style={{ position: "relative", flex: "0 0 auto" }}>
+          <div ref={sortBtnRef} style={{ position: "relative", flex: "0 0 auto" }}>
             <div
-              onClick={() => setSortOpen((v) => !v)}
+              onClick={() => {
+                setSortOpen((v) => {
+                  const next = !v;
+                  if (next && sortBtnRef.current) {
+                    const r = sortBtnRef.current.getBoundingClientRect();
+                    const MENU_W = 200;
+                    const MARGIN = 8;
+                    setSortPos({
+                      top: r.bottom + 4,
+                      left: Math.min(Math.max(MARGIN, r.right - MENU_W), Math.max(MARGIN, window.innerWidth - MENU_W - MARGIN)),
+                    });
+                  }
+                  return next;
+                });
+              }}
               style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ink)", border: "1px solid var(--border)", background: "var(--input)", borderRadius: 9, padding: "7px 11px" }}
             >
               <SortIcon size={15} />
               {!isMobile && sortLabel}
             </div>
-            {sortOpen && (
+            {sortOpen && sortPos && (
               <div
                 onMouseLeave={() => setSortOpen(false)}
-                style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 10, minWidth: 200, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(0,0,0,.45)", padding: 5 }}
+                style={{ position: "fixed", top: sortPos.top, left: sortPos.left, zIndex: 10, minWidth: 200, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(0,0,0,.45)", padding: 5 }}
               >
                 {CAT_ORDER_OPTS.map(([key, label]) => (
                   <div

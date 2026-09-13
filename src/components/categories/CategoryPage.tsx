@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useVaultStore, sortNotes } from "@/lib/store/useVaultStore";
 import { SortIcon, MoreIcon, PlusIcon } from "@/components/icons/Icons";
 import { SORT_OPTS } from "@/lib/theme/tokens";
@@ -9,6 +9,11 @@ import { CategoryActionsMenu } from "./CategoryActionsMenu";
 export function CategoryPage({ name }: { name: string }) {
   const s = useVaultStore();
   const [sortOpen, setSortOpen] = useState(false);
+  // right:0 off this button overflowed past the left edge on a narrow
+  // viewport — measuring and clamping into the visible viewport instead
+  // keeps the dropdown on-screen at any width.
+  const sortBtnRef = useRef<HTMLDivElement | null>(null);
+  const [sortPos, setSortPos] = useState<{ top: number; left: number } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const notes = sortNotes(
     s.notes.filter((n) => n.category === name),
@@ -71,18 +76,32 @@ export function CategoryPage({ name }: { name: string }) {
           <span style={{ fontSize: 12.5, color: "var(--muted)", flex: 1 }}>
             {notes.length} note{notes.length === 1 ? "" : "s"}
           </span>
-          <div style={{ position: "relative" }}>
+          <div ref={sortBtnRef} style={{ position: "relative" }}>
             <div
-              onClick={() => setSortOpen((v) => !v)}
+              onClick={() => {
+                setSortOpen((v) => {
+                  const next = !v;
+                  if (next && sortBtnRef.current) {
+                    const r = sortBtnRef.current.getBoundingClientRect();
+                    const MENU_W = 200;
+                    const MARGIN = 8;
+                    setSortPos({
+                      top: r.bottom + 4,
+                      left: Math.min(Math.max(MARGIN, r.right - MENU_W), Math.max(MARGIN, window.innerWidth - MENU_W - MARGIN)),
+                    });
+                  }
+                  return next;
+                });
+              }}
               style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12.5, color: "var(--muted)", border: "1px solid var(--border)", background: "var(--input)", borderRadius: 8, padding: "6px 11px" }}
             >
               <SortIcon size={15} />
               {sortLabel}
             </div>
-            {sortOpen && (
+            {sortOpen && sortPos && (
               <div
                 onMouseLeave={() => setSortOpen(false)}
-                style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 10, minWidth: 200, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(0,0,0,.45)", padding: 5 }}
+                style={{ position: "fixed", top: sortPos.top, left: sortPos.left, zIndex: 10, minWidth: 200, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(0,0,0,.45)", padding: 5 }}
               >
                 {SORT_OPTS.map(([key, label]) => (
                   <div

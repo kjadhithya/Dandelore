@@ -185,7 +185,9 @@ export interface VaultStore extends VaultState {
   onFolderContext: (name: string, x: number, y: number) => void;
   closeFolderCtx: () => void;
   newSubfolder: (parent: string) => void;
-  deleteFolder: (name: string) => void;
+  requestDeleteFolder: (name: string, onDeleted?: () => void) => void;
+  closeFolderDeleteRequest: () => void;
+  resolveFolderDelete: (mode: "keep" | "move" | "delete", targetFolder?: string) => void;
   moveNoteTo: (id: string, folder: string) => void;
 
   // search / sort
@@ -259,6 +261,7 @@ export interface VaultStore extends VaultState {
   // import/export/attach
   exportJson: () => void;
   exportMarkdownZip: () => Promise<void>;
+  exportCategoryMarkdownZip: (name: string) => Promise<void>;
   exportNote: () => void;
   importMarkdown: (files: { name: string; text: string }[]) => void;
   importJson: (data: unknown) => { ok: boolean; error?: string };
@@ -313,6 +316,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   folderRenameDraft: "",
   folderCtx: null,
   draggingFolder: null,
+  folderDeleteRequest: null,
 
   categories: [],
   pinnedCategories: [],
@@ -880,8 +884,17 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       folderCtx: null,
     }));
   },
-  deleteFolder: (name) =>
+  requestDeleteFolder: (name, onDeleted) => set({ folderDeleteRequest: { name, onDeleted } }),
+  closeFolderDeleteRequest: () => set({ folderDeleteRequest: null }),
+  resolveFolderDelete: (mode, targetFolder) => {
+    const req = get().folderDeleteRequest;
+    if (!req) return;
+    const { name, onDeleted } = req;
     set((s) => {
+      // Subfolders always move up to this folder's own parent, regardless
+      // of what's chosen for the notes directly inside it — only the notes
+      // choice (keep/move/delete) is new; child-folder reparenting is the
+      // same thing deleting a folder always did.
       const parent = s.folderParents[name] || "";
       const folderList = s.folderList.filter((f) => f !== name);
       const folderParents: Record<string, string | null> = {};
@@ -891,11 +904,41 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
         if (v === name) v = parent || null;
         folderParents[k] = v;
       });
-      const notes = s.notes.map((n) => (n.folder === name ? { ...n, folder: parent || "" } : n));
       const expanded = { ...s.expanded };
       delete expanded[name];
-      return { folderList, folderParents, notes, expanded, folderCtx: null };
-    }),
+
+      if (mode === "delete") {
+        const ids = new Set(s.notes.filter((n) => n.folder === name).map((n) => n.id));
+        const notes = s.notes.filter((n) => !ids.has(n.id));
+        const tabs = s.tabs.map((t) => {
+          const hist = t.hist.filter((v) => !(v.kind === "note" && v.id && ids.has(v.id)));
+          if (!hist.length) return mkTab({ kind: "home" });
+          return { hist, hi: Math.min(t.hi, hist.length - 1) };
+        });
+        let split = s.split;
+        if (split) {
+          const st = split.tabs
+            .map((t) => ({ hist: t.hist.filter((v) => !(v.kind === "note" && v.id && ids.has(v.id))), hi: 0 }))
+            .filter((t) => t.hist.length);
+          split = st.length ? { ...split, tabs: st, active: Math.min(split.active, st.length - 1) } : null;
+        }
+        return {
+          folderList,
+          folderParents,
+          expanded,
+          notes,
+          tabs,
+          split,
+          noteDeleteEvent: ids.size ? { ids: [...ids] } : s.noteDeleteEvent,
+          folderDeleteRequest: null,
+        };
+      }
+      const dest = mode === "move" && targetFolder ? targetFolder : parent || "";
+      const notes = s.notes.map((n) => (n.folder === name ? { ...n, folder: dest } : n));
+      return { folderList, folderParents, expanded, notes, folderDeleteRequest: null };
+    });
+    onDeleted?.();
+  },
   moveNoteTo: (id, folder) =>
     set((s) => ({ notes: s.notes.map((n) => (n.id === id ? { ...n, folder } : n)), dragOverFolder: null, draggingId: null })),
 
@@ -1252,6 +1295,25 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     downloadBlob("vault-markdown.zip", blob);
     set({ settingsOpen: false, noteMenuOpen: false });
   },
+  // Same shape as exportMarkdownZip but scoped to one category's notes,
+  // flat (no folder tree — category isn't a folder concept) — triggered
+  // from a category card's or category page's "..." menu.
+  exportCategoryMarkdownZip: async (name) => {
+    const notes = get().notes.filter((n) => n.category === name);
+    if (!notes.length) return;
+    const zip = new JSZip();
+    const usedNames = new Map<string, number>();
+    notes.forEach((n) => {
+      const base = (n.title || "Untitled").replace(/[\\/:*?"<>|]/g, "-").trim() || "Untitled";
+      const count = usedNames.get(base) || 0;
+      usedNames.set(base, count + 1);
+      const filename = base + (count ? ` ${count + 1}` : "") + ".md";
+      zip.file(filename, noteToMarkdownFile(n));
+    });
+    const blob = await zip.generateAsync({ type: "blob" });
+    const zipName = (name || "category").replace(/[\\/:*?"<>|]/g, "-").trim() || "category";
+    downloadBlob(`${zipName}.zip`, blob);
+  },
   exportNote: () => {
     const n = get().cur();
     if (n) downloadFile((n.title || "note") + ".md", noteToMarkdownFile(n), "text/markdown");
@@ -1429,6 +1491,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       linkQuery: null,
       tagAcQuery: null,
       folderCtx: null,
+      folderDeleteRequest: null,
       bulkCtx: null,
     }),
   openCheat: () => set({ cheatOpen: true }),
@@ -1452,6 +1515,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       catCtx: null,
       catDeleteRequest: null,
       folderCtx: null,
+      folderDeleteRequest: null,
       bulkCtx: null,
       expanded: {},
       searchQuery: "",

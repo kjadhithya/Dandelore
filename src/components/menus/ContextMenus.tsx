@@ -140,12 +140,7 @@ export function FolderContextMenu() {
           onClick={() => {
             const name = s.folderCtx!.name;
             s.closeFolderCtx();
-            s.openConfirm({
-              title: "Delete folder?",
-              message: `"${name}" will be removed. Notes inside move up to its parent folder — they aren't deleted.`,
-              confirmLabel: "Delete folder",
-              onConfirm: () => s.deleteFolder(name),
-            });
+            s.requestDeleteFolder(name);
           }}
         >
           Delete folder

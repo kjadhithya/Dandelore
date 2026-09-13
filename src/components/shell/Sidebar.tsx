@@ -268,6 +268,14 @@ export function Sidebar() {
   const s = useVaultStore();
   const { accent } = useDerivedTheme();
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  // The dropdown used to anchor via right:0 off a wrapper sitting near the
+  // *right* edge of the (often narrow) sidebar — with a 220px-wide menu and
+  // not much room to its left, that pushed it past the left edge of the
+  // window entirely on a narrow sidebar/viewport, clipping it. Measuring
+  // the button and clamping into the visible viewport fixes that
+  // regardless of how little room there is on either side.
+  const sortBtnRef = useRef<HTMLDivElement | null>(null);
+  const [sortMenuPos, setSortMenuPos] = useState<{ top: number; left: number } | null>(null);
   const isMobile = useIsMobile();
   const closeIfMobile = () => {
     if (isMobile) s.toggleLeft();
@@ -431,16 +439,33 @@ export function Sidebar() {
             <SearchIcon size={19} />
           </ToolButton>
           <div style={{ flex: 1 }} />
-          <div style={{ position: "relative" }}>
-            <ToolButton title="Sort" onClick={() => setSortMenuOpen((v) => !v)}>
+          <div ref={sortBtnRef} style={{ position: "relative" }}>
+            <ToolButton
+              title="Sort"
+              onClick={() => {
+                setSortMenuOpen((v) => {
+                  const next = !v;
+                  if (next && sortBtnRef.current) {
+                    const r = sortBtnRef.current.getBoundingClientRect();
+                    const MENU_W = 220;
+                    const MARGIN = 8;
+                    setSortMenuPos({
+                      top: r.bottom + 4,
+                      left: Math.min(Math.max(MARGIN, r.right - MENU_W), Math.max(MARGIN, window.innerWidth - MENU_W - MARGIN)),
+                    });
+                  }
+                  return next;
+                });
+              }}
+            >
               <SortIcon size={20} />
             </ToolButton>
-            {sortMenuOpen && (
+            {sortMenuOpen && sortMenuPos && (
               <div
                 style={{
-                  position: "absolute",
-                  top: "calc(100% + 4px)",
-                  right: 0,
+                  position: "fixed",
+                  top: sortMenuPos.top,
+                  left: sortMenuPos.left,
                   zIndex: 30,
                   minWidth: 220,
                   background: "var(--panel)",
