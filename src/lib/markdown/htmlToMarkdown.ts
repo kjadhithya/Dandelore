@@ -153,8 +153,14 @@ function walk(node: Node): string {
   if (tag === "ul" || tag === "ol") {
     const items = Array.from(el.children).filter((c) => c.tagName.toLowerCase() === "li");
     const lines = items.map((li, i) => {
-      const inner = childrenToMd(li as HTMLElement).trim();
-      return (tag === "ol" ? `${i + 1}. ` : "- ") + inner;
+      // A nested <ul>/<ol> inside the item comes back as its own list lines
+      // — indent those a level so the nesting survives the paste.
+      const [first, ...rest] = childrenToMd(li as HTMLElement)
+        .trim()
+        .split("\n")
+        .filter((l) => l.trim());
+      const nested = rest.map((l) => (/^\s*([-*]|\d+\.)\s/.test(l) ? "\t" + l : l));
+      return [(tag === "ol" ? `${i + 1}. ` : "- ") + (first || ""), ...nested].join("\n");
     });
     return lines.length ? `\n\n${lines.join("\n")}\n\n` : "";
   }

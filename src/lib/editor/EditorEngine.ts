@@ -1,4 +1,4 @@
-import { renderLineLive, sepLine, inlineLive } from "@/lib/markdown/liveEditor";
+import { renderLineLive, sepLine, inlineLive, indentLevel } from "@/lib/markdown/liveEditor";
 import type { TitleResolver } from "@/lib/markdown/liveEditor";
 import { htmlToMarkdown } from "@/lib/markdown/htmlToMarkdown";
 
@@ -42,6 +42,8 @@ export interface EditorEngineDeps {
 }
 
 const C_CODE_CSS = "var(--code)";
+/** A bullet, task or numbered line — the lines Tab/Shift+Tab re-nest. */
+const LIST_LINE = /^\s*([-*]\s|\d+\.\s)/;
 
 export class EditorEngine {
   ed: HTMLDivElement | null = null;
@@ -709,6 +711,19 @@ export class EditorEngine {
         return;
       }
     }
+    if (e.key === "Tab" && !e.metaKey && !e.ctrlKey && !e.altKey && !this.popup) {
+      const lines = this.selectedLines().filter((l) => LIST_LINE.test(l.textContent || ""));
+      if (lines.length) {
+        e.preventDefault();
+        const dir = e.shiftKey ? -1 : 1;
+        if (lines.length === 1) this.shiftIndent(lines[0], dir);
+        else {
+          for (const l of lines) this.shiftIndent(l, dir, false);
+          this.commit();
+        }
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey && !this.popup) {
       const ci = this.caretInfo();
       if (ci) {
@@ -726,6 +741,12 @@ export class EditorEngine {
         }
         if ((m = text.match(/^(\s*)([-*])\s+(\[( |x|X)\]\s?)?(.*)$/))) {
           e.preventDefault();
+          // Enter on an empty nested bullet steps it out a level (the usual
+          // outliner behavior) instead of ending the list outright.
+          if (m[5].trim() === "" && m[1]) {
+            this.shiftIndent(ci.line, -1);
+            return;
+          }
           if (m[5].trim() === "") {
             this.updateLine(ci.line, "");
             this.setActive(ci.line);
@@ -736,6 +757,10 @@ export class EditorEngine {
         }
         if ((m = text.match(/^(\s*)(\d+)\.\s+(.*)$/))) {
           e.preventDefault();
+          if (m[3].trim() === "" && m[1]) {
+            this.shiftIndent(ci.line, -1);
+            return;
+          }
           if (m[3].trim() === "") {
             this.updateLine(ci.line, "");
             this.setActive(ci.line);
@@ -768,6 +793,54 @@ export class EditorEngine {
         }
       }
     }
+  }
+
+  /** The .ln lines the caret or selection touches, top to bottom. */
+  selectedLines(): HTMLDivElement[] {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !this.ed) return [];
+    const rng = sel.getRangeAt(0);
+    if (!this.ed.contains(rng.startContainer) || !this.ed.contains(rng.endContainer)) return [];
+    const top = (n: Node | null) => {
+      while (n && n.parentNode !== this.ed) n = n.parentNode;
+      return n as HTMLDivElement | null;
+    };
+    const a = top(rng.startContainer);
+    const b = top(rng.endContainer);
+    if (!a || !b) return [];
+    const out: HTMLDivElement[] = [];
+    for (let n: Node | null = a; n; n = n.nextSibling) {
+      if (n.nodeType === 1 && !(n as HTMLElement).classList.contains("blockdeco")) out.push(n as HTMLDivElement);
+      if (n === b) break;
+    }
+    return out;
+  }
+
+  /** Indents (dir 1) or outdents (dir -1) a list line by one level — a tab,
+   * or two spaces on outdent when the line was indented with spaces — and
+   * keeps the caret on the same character it was on. */
+  shiftIndent(line: HTMLDivElement, dir: number, commit = true) {
+    const text = line.textContent || "";
+    const ci = this.caretInfo();
+    const col = ci && ci.line === line ? ci.col : null;
+    let nt: string;
+    let delta: number;
+    if (dir > 0) {
+      if (indentLevel(text.match(/^\s*/)![0]) >= 6) return;
+      nt = "\t" + text;
+      delta = 1;
+    } else {
+      const strip = text.startsWith("\t") ? 1 : Math.min(2, text.match(/^ */)![0].length);
+      if (!strip) return;
+      nt = text.slice(strip);
+      delta = -strip;
+    }
+    this.updateLine(line, nt);
+    if (col !== null) {
+      this.setActive(line);
+      this.setCol(line, Math.max(0, col + delta));
+    }
+    if (commit) this.commit();
   }
 
   movePopup(dir: number) {

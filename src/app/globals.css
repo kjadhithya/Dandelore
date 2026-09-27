@@ -248,6 +248,25 @@ select:focus {
   left: 0.35em;
   color: var(--muted);
 }
+/* Nested list levels (see lvlCls in liveEditor.ts). The indentation itself
+ * lives in a .m.ind span that stays hidden on the active line too. */
+.liveedit .ln.active .m.ind {
+  font-size: 0;
+}
+.liveedit .ln.lvl1 { margin-left: 1.5em; }
+.liveedit .ln.lvl2 { margin-left: 3em; }
+.liveedit .ln.lvl3 { margin-left: 4.5em; }
+.liveedit .ln.lvl4 { margin-left: 6em; }
+.liveedit .ln.lvl5 { margin-left: 7.5em; }
+.liveedit .ln.lvl6 { margin-left: 9em; }
+.liveedit .ln.bullet.lvl1::before,
+.liveedit .ln.bullet.lvl4::before {
+  content: "◦";
+}
+.liveedit .ln.bullet.lvl2::before,
+.liveedit .ln.bullet.lvl5::before {
+  content: "▪";
+}
 .liveedit .ln.task {
   padding-left: 1.55em;
   position: relative;

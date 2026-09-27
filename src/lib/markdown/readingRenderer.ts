@@ -1,6 +1,12 @@
 import { esc, escAttr, unesc } from "./esc";
 import type { Attachment } from "@/types/vault";
 import type { TitleResolver } from "./liveEditor";
+import { indentLevel } from "./liveEditor";
+
+/** Nesting level of a list line, capped to match the editor's lvl1..lvl6. */
+function listLevel(ln: string): number {
+  return Math.min(indentLevel(ln.match(/^\s*/)![0]), 6);
+}
 
 export interface ReadingColors {
   code: string;
@@ -273,7 +279,9 @@ export function md2html(
       const done = /\[(x|X)\]/.test(ln);
       const txt = ln.replace(/^\s*[-*]\s+\[( |x|X)\]\s?/, "");
       out +=
-        '<li style="display:flex;align-items:flex-start;gap:9px;margin:0;line-height:1.6;"><input type="checkbox" data-task="' +
+        '<li style="display:flex;align-items:flex-start;gap:9px;margin:0 0 0 ' +
+        listLevel(ln) * 22 +
+        'px;line-height:1.6;"><input type="checkbox" data-task="' +
         taskIdx +
         '" ' +
         (done ? "checked" : "") +
@@ -298,8 +306,15 @@ export function md2html(
         out += '<ul style="padding-left:20px;margin:0;">';
         listOpen.ul = true;
       }
+      const lvl = listLevel(ln);
       out +=
-        '<li style="margin:0;line-height:1.75;color:var(--text);">' + inl(ln.replace(/^\s*[-*]\s+/, "")) + "</li>";
+        '<li style="margin:0 0 0 ' +
+        lvl * 22 +
+        "px;list-style-type:" +
+        ["disc", "circle", "square"][lvl % 3] +
+        ';line-height:1.75;color:var(--text);">' +
+        inl(ln.replace(/^\s*[-*]\s+/, "")) +
+        "</li>";
       i++;
       continue;
     }
@@ -314,8 +329,16 @@ export function md2html(
         out += '<ol style="padding-left:22px;margin:0;">';
         listOpen.ol = true;
       }
+      // value= keeps the number the note actually has — nested items share
+      // this one flat <ol>, so automatic numbering would run on across levels.
       out +=
-        '<li style="margin:0;line-height:1.75;color:var(--text);">' + inl(ln.replace(/^\s*\d+\.\s+/, "")) + "</li>";
+        '<li value="' +
+        parseInt(ln.trim(), 10) +
+        '" style="margin:0 0 0 ' +
+        listLevel(ln) * 22 +
+        'px;line-height:1.75;color:var(--text);">' +
+        inl(ln.replace(/^\s*\d+\.\s+/, "")) +
+        "</li>";
       i++;
       continue;
     }
