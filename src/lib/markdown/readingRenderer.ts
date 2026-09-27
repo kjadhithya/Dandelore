@@ -1,5 +1,4 @@
-import { esc } from "./esc";
-import { escAttr } from "./esc";
+import { esc, escAttr, unesc } from "./esc";
 import type { Attachment } from "@/types/vault";
 import type { TitleResolver } from "./liveEditor";
 
@@ -27,13 +26,13 @@ function inline(s: string, atts: Record<string, Attachment>, hasNote: TitleResol
       ';padding:1px 5px;border-radius:4px;font-family:IBM Plex Mono,monospace;font-size:.88em;">$1</code>',
   );
   s = s.replace(/!\[\[([^\]]+)\]\]/g, (_m, nm) => {
-    const a = atts[nm.trim()];
+    const a = atts[unesc(nm.trim())];
     if (!a) return '<span style="color:' + C.accentFadedRgba + ';">[' + nm.trim() + " — missing]</span>";
     const t = a.type || "";
     if (t.indexOf("image") === 0)
       return (
         '<img data-embed="' +
-        escAttr(nm.trim()) +
+        escAttr(unesc(nm.trim())) +
         '" src="' +
         a.url +
         '" style="width:' +
@@ -53,7 +52,7 @@ function inline(s: string, atts: Record<string, Attachment>, hasNote: TitleResol
       '<a href="' +
       a.url +
       '" download="' +
-      escAttr(nm.trim()) +
+      escAttr(unesc(nm.trim())) +
       '" style="display:inline-block;padding:8px 12px;background:' +
       C.code +
       ';border-radius:8px;border:1px solid var(--border);margin:6px 0;">⬇ ' +
@@ -69,9 +68,9 @@ function inline(s: string, atts: Record<string, Attachment>, hasNote: TitleResol
     /\[\[([^\]]+)\]\]/g,
     (_m, t) =>
       '<a class="wl' +
-      (hasNote(t.trim()) ? "" : " missing") +
+      (hasNote(unesc(t.trim())) ? "" : " missing") +
       '" data-wikilink="' +
-      escAttr(t.trim()) +
+      escAttr(unesc(t.trim())) +
       '" href="#">' +
       t.trim() +
       "</a>",
@@ -174,9 +173,10 @@ export function md2html(
       flushBlanks();
       const row = (l: string) =>
         l
-          .replace(/^\||\|$/g, "")
-          .split("|")
-          .map((c) => c.trim());
+          .replace(/^\||(?<!\\)\|$/g, "")
+          // "\|" is a literal pipe inside a cell (pasted tables escape them).
+          .split(/(?<!\\)\|/)
+          .map((c) => c.trim().replace(/\\\|/g, "|"));
       const head = row(ln);
       i += 2;
       const body: string[][] = [];

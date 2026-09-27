@@ -15,6 +15,8 @@ import {
   GripIcon,
 } from "@/components/icons/Icons";
 import type { Note } from "@/types/vault";
+import { searchNotes, searchCategories, isClosestOnly } from "@/lib/search";
+import { Highlighted } from "@/components/search/Highlighted";
 
 const SORT_DEFS: [string, string][] = [
   ["name-az", "File name (A to Z)"],
@@ -384,6 +386,11 @@ export function Sidebar() {
   const searchResults = useMemo(() => {
     const rawq = s.searchQuery.trim();
     if (!rawq) return [];
+    // Plain queries (no "tag:"/"file:"/... prefix) use the word-based,
+    // typo-tolerant search; the prefixed modes keep their exact behavior.
+    if (!/^(tag|file|path|line|section|cat|category)\s*:/i.test(rawq)) {
+      return searchNotes(s.notes, rawq).map((h) => ({ ...h, snippet: h.snippet || h.note.folder }));
+    }
     let mode = "text";
     let term = rawq.toLowerCase();
     const pre = rawq.match(/^(tag|file|path|line|section|cat|category)\s*:/i);
@@ -418,6 +425,13 @@ export function Sidebar() {
       return { note: n, snippet: snip };
     });
   }, [s.searchQuery, s.notes]);
+  const plainQuery = hasSearchText && !/^(tag|file|path|line|section|cat|category)\s*:/i.test(s.searchQuery.trim());
+  const categoryResults = useMemo(
+    () => (plainQuery ? searchCategories(s.categories, s.notes, s.searchQuery) : []),
+    [plainQuery, s.categories, s.notes, s.searchQuery],
+  );
+  const closestOnly =
+    plainQuery && isClosestOnly(searchResults as ReturnType<typeof searchNotes>, s.searchQuery);
 
   return (
     <>
@@ -563,10 +577,37 @@ export function Sidebar() {
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 16px 8px" }}>
                   <span style={{ fontSize: 12, color: "var(--muted)", flex: 1 }}>
-                    {searchResults.length} result{searchResults.length === 1 ? "" : "s"}
+                    {closestOnly
+                      ? `No exact match · ${searchResults.length} closest`
+                      : `${searchResults.length} result${searchResults.length === 1 ? "" : "s"}`}
                   </span>
                 </div>
                 <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 10px 14px" }}>
+                  {categoryResults.length > 0 && (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, color: "var(--faint)", textTransform: "uppercase", letterSpacing: ".06em", padding: "0 6px 6px" }}>Categories</div>
+                      {categoryResults.map((c) => (
+                        <div
+                          key={c.name}
+                          onClick={() => {
+                            s.goCategory(c.name);
+                            closeIfMobile();
+                          }}
+                          style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", cursor: "pointer", borderRadius: 6, minHeight: isMobile ? 40 : undefined }}
+                        >
+                          <span style={{ fontSize: 13, color: "var(--ink)", border: "1px solid var(--border)", borderRadius: 999, padding: "2px 10px" }}>
+                            <Highlighted text={c.name} query={s.searchQuery} color={accent} />
+                          </span>
+                          <span style={{ fontSize: 11.5, color: "var(--faint)" }}>
+                            {c.count} note{c.count === 1 ? "" : "s"}
+                          </span>
+                        </div>
+                      ))}
+                      {searchResults.length > 0 && (
+                        <div style={{ fontSize: 11, color: "var(--faint)", textTransform: "uppercase", letterSpacing: ".06em", padding: "12px 6px 0" }}>Notes</div>
+                      )}
+                    </div>
+                  )}
                   {searchResults.map(({ note, snippet }) => (
                     <div key={note.id} style={{ marginBottom: 10 }}>
                       <div
@@ -576,7 +617,9 @@ export function Sidebar() {
                         }}
                         style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 6px", cursor: "pointer", borderRadius: 6, minHeight: isMobile ? 40 : undefined }}
                       >
-                        <span style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontSize: 14, color: "var(--ink)", flex: 1, minWidth: 0, overflowWrap: "break-word" }}>{note.title}</span>
+                        <span style={{ fontFamily: "var(--font-title, var(--font-spectral))", fontSize: 14, color: "var(--ink)", flex: 1, minWidth: 0, overflowWrap: "break-word" }}>
+                          {plainQuery ? <Highlighted text={note.title} query={s.searchQuery} color={accent} /> : note.title}
+                        </span>
                       </div>
                       <div
                         onClick={() => {
@@ -585,11 +628,11 @@ export function Sidebar() {
                         }}
                         style={{ cursor: "pointer", margin: "4px 6px 0 18px", background: "var(--bg)", border: "1px solid var(--border-soft)", borderRadius: 8, padding: "8px 11px", fontSize: 12, color: "var(--text)", lineHeight: 1.5, overflowWrap: "break-word", wordBreak: "break-word" }}
                       >
-                        {snippet}
+                        {plainQuery ? <Highlighted text={snippet} query={s.searchQuery} color={accent} /> : snippet}
                       </div>
                     </div>
                   ))}
-                  {searchResults.length === 0 && (
+                  {searchResults.length === 0 && categoryResults.length === 0 && (
                     <div style={{ fontSize: 12.5, color: "var(--faint)", fontStyle: "italic", padding: "8px 6px" }}>No results.</div>
                   )}
                 </div>

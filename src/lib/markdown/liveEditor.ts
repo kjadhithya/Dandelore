@@ -1,4 +1,4 @@
-import { esc, escAttr } from "./esc";
+import { esc, escAttr, unesc } from "./esc";
 
 export interface LineRender {
   cls: string;
@@ -26,12 +26,13 @@ export function inlineLive(s: string, hasNote: TitleResolver): string {
     (_mm, x) => '<span class="m">![[</span><span class="wl">' + x + "</span><span class=\"m\">]]</span>",
   );
   s = s.replace(/\[\[([^\]]+)\]\]/g, (_mm, x) => {
-    const cls = hasNote(x.trim()) ? "wl" : "wl missing";
+    const title = unesc(x.trim());
+    const cls = hasNote(title) ? "wl" : "wl missing";
     return (
       '<span class="m">[[</span><a class="' +
       cls +
       '" data-wikilink="' +
-      escAttr(x.trim()) +
+      escAttr(title) +
       '">' +
       x +
       "</a><span class=\"m\">]]</span>"
