@@ -124,6 +124,8 @@ export class EditorEngine {
 
   attach(ed: HTMLDivElement) {
     ed.addEventListener("paste", (e) => this.onPaste(e));
+    ed.addEventListener("copy", (e) => this.onCopyCut(e, false));
+    ed.addEventListener("cut", (e) => this.onCopyCut(e, true));
     ed.addEventListener("beforeinput", (e) => this.onBeforeInput(e as InputEvent));
     ed.addEventListener("input", (e) => this.onInput(e as InputEvent));
     ed.addEventListener("keydown", (e) => this.onKeydown(e));
@@ -1042,8 +1044,7 @@ export class EditorEngine {
    * lines, so it doubles as the multi-line-aware text extraction
    * singleLineSelection() doesn't provide. */
   async copySelection() {
-    const sel = window.getSelection();
-    const text = sel ? sel.toString() : "";
+    const text = this.selectedMarkdown() ?? window.getSelection()?.toString() ?? "";
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
@@ -1051,8 +1052,7 @@ export class EditorEngine {
   }
 
   async cutSelection() {
-    const sel = window.getSelection();
-    const text = sel ? sel.toString() : "";
+    const text = this.selectedMarkdown() ?? window.getSelection()?.toString() ?? "";
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
@@ -1061,6 +1061,53 @@ export class EditorEngine {
     }
     this.deleteCurrentSelection();
     this.ed?.focus();
+  }
+
+  /** The selection as the note's own markdown source. The browser's native
+   * copy only captures what's visible, and the markup on inactive lines
+   * (a heading's "## ", "**" around bold, a list's "- ") is hidden, so a
+   * copy-paste within the editor silently turned headings and bold into
+   * plain text. A selection that starts at the beginning of a line's
+   * visible text also takes that line's hidden prefix, since that's what
+   * selecting "the whole heading" looks like on screen. */
+  selectedMarkdown(): string | null {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount || !this.ed) return null;
+    const rng = sel.getRangeAt(0);
+    if (!this.ed.contains(rng.startContainer) || !this.ed.contains(rng.endContainer)) return null;
+    let l1: Node | null = rng.startContainer;
+    while (l1 && l1.parentNode !== this.ed) l1 = l1.parentNode;
+    let l2: Node | null = rng.endContainer;
+    while (l2 && l2.parentNode !== this.ed) l2 = l2.parentNode;
+    if (!l1 || !l2) return null;
+    const startLine = l1 as HTMLElement;
+    const endLine = l2 as HTMLElement;
+    let startCol = this.colOf(startLine, rng.startContainer, rng.startOffset);
+    const endCol = this.colOf(endLine, rng.endContainer, rng.endOffset);
+    const firstText = startLine.textContent || "";
+    const prefix = firstText.match(/^(#{1,6}\s+|\s*>\s?|\s*[-*]\s+\[[ xX]\]\s?|\s*[-*]\s+|\s*\d+\.\s+)/);
+    if (prefix && startCol <= prefix[0].length) startCol = 0;
+    const lineText = (el: HTMLElement) => (el.tagName === "BR" ? "" : el.textContent || "");
+    if (startLine === endLine) return lineText(startLine).slice(startCol, endCol);
+    const out = [lineText(startLine).slice(startCol)];
+    for (let n = startLine.nextSibling; n && n !== endLine; n = n.nextSibling) {
+      if (n.nodeType !== 1 || (n as HTMLElement).classList.contains("blockdeco")) continue;
+      out.push(lineText(n as HTMLElement));
+    }
+    out.push(lineText(endLine).slice(0, endCol));
+    return out.join("\n");
+  }
+
+  /** Native Cmd/Ctrl+C and Cmd/Ctrl+X — puts the markdown source on the
+   * clipboard as plain text (see selectedMarkdown), which pastes back into
+   * the editor with formatting intact and into other apps as readable
+   * markdown, the same way Obsidian copies. */
+  onCopyCut(e: ClipboardEvent, cut: boolean) {
+    const md = this.selectedMarkdown();
+    if (md === null || !e.clipboardData) return;
+    e.preventDefault();
+    e.clipboardData.setData("text/plain", md);
+    if (cut) this.deleteCurrentSelection();
   }
 
   selectAllContent() {
