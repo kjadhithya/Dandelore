@@ -98,7 +98,7 @@ export function renderLineLive(text: string, hasNote: TitleResolver): LineRender
   if ((m = text.match(/^(\s*)(\d+\.\s+)(.*)$/)))
     return {
       cls: "ln ol" + lvlCls(m[1]),
-      html: indSpan(m[1]) + '<span style="color:var(--muted);">' + esc(m[2]) + "</span>" + inlineLive(m[3], hasNote),
+      html: indSpan(m[1]) + '<span class="olnum">' + esc(m[2]) + "</span>" + inlineLive(m[3], hasNote),
     };
   if (/^(---|\*\*\*|___)\s*$/.test(text)) return { cls: "ln hr", html: esc(text) };
   return { cls: "ln p", html: inlineLive(text, hasNote) };

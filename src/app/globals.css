@@ -250,8 +250,12 @@ select:focus {
 }
 /* Nested list levels (see lvlCls in liveEditor.ts). The indentation itself
  * lives in a .m.ind span that stays hidden on the active line too. */
+.liveedit .ln .m.ind,
 .liveedit .ln.active .m.ind {
   font-size: 0;
+  /* A tab doesn't shrink with font-size — it jumps to the next tab stop,
+   * which left a wide gap before nested items. */
+  tab-size: 0;
 }
 .liveedit .ln.lvl1 { margin-left: 1.5em; }
 .liveedit .ln.lvl2 { margin-left: 3em; }
@@ -286,8 +290,19 @@ select:focus {
   color: var(--faint);
   text-decoration: line-through;
 }
+/* Numbers hang in the left margin like bullets do, so a numbered item's
+ * text lines up with a bullet's and wrapped lines align under the text
+ * rather than under the number. The span's right edge sits at the text
+ * start and it grows leftward, so "10." fits as well as "1.". */
 .liveedit .ln.ol {
-  padding-left: 1.5em;
+  padding-left: 1.35em;
+  position: relative;
+}
+.liveedit .ln.ol .olnum {
+  position: absolute;
+  right: calc(100% - 1.35em);
+  white-space: pre;
+  color: var(--muted);
 }
 .liveedit .ln.bq {
   border-left: 3px solid var(--accent-text, var(--accent, #b0623b));
