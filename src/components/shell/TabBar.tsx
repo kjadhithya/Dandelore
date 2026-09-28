@@ -1,5 +1,6 @@
 "use client";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
+import { DragGhost, ghostFrom, type GhostState } from "./DragGhost";
 import { useVaultStore } from "@/lib/store/useVaultStore";
 import type { TabState } from "@/types/vault";
 
@@ -27,24 +28,60 @@ export function TabBar({ split }: { split?: boolean }) {
   const onClose = (i: number) => (split ? s.splitCloseTab(i) : s.closeTab(i));
   const onNew = () => (split ? s.splitNewTab() : s.newTab());
 
-  // Drag to reorder: `drop` is the gap the dragged tab would land in
-  // (0 = before the first tab, tabs.length = after the last), shown as an
-  // accent bar on that edge.
+  // Drag to reorder, on plain mouse events (like the sidebar) so a lifted
+  // copy of the tab can follow the cursor. `drop` is the gap the tab would
+  // land in (0 = before the first tab, tabs.length = after the last), shown
+  // as an accent bar on that edge.
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const suppressClick = useRef(false);
   const [drag, setDrag] = useState<{ from: number; drop: number } | null>(null);
-  const dropGap = (e: React.DragEvent, i: number) => {
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    return e.clientX < r.left + r.width / 2 ? i : i + 1;
-  };
-  const finishDrag = () => {
-    if (drag) {
-      const to = drag.drop > drag.from ? drag.drop - 1 : drag.drop;
-      if (to !== drag.from) s.moveTab(drag.from, to, split);
+  const [ghost, setGhost] = useState<GhostState | null>(null);
+
+  function gapAt(x: number): number {
+    const els = Array.from(barRef.current?.querySelectorAll<HTMLElement>("[data-tab-index]") || []);
+    for (let k = 0; k < els.length; k++) {
+      const r = els[k].getBoundingClientRect();
+      if (x < r.left + r.width / 2) return k;
     }
-    setDrag(null);
-  };
+    return els.length;
+  }
+
+  function startDrag(e: React.MouseEvent, i: number, label: string) {
+    if (e.button !== 0) return;
+    const startX = e.clientX,
+      startY = e.clientY;
+    const base = ghostFrom(e, e.currentTarget as HTMLElement, label, "tab");
+    let dragging = false;
+    let drop = i;
+    function onMove(ev: MouseEvent) {
+      if (!dragging) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
+        dragging = true;
+      }
+      drop = gapAt(ev.clientX);
+      setDrag({ from: i, drop });
+      setGhost({ ...base, x: ev.clientX, y: ev.clientY });
+    }
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      if (!dragging) return;
+      // The mouseup is followed by a click on whatever tab is under the
+      // pointer — don't let that re-select a different tab.
+      suppressClick.current = true;
+      setTimeout(() => (suppressClick.current = false), 0);
+      const to = drop > i ? drop - 1 : drop;
+      if (to !== i) s.moveTab(i, to, split);
+      setDrag(null);
+      setGhost(null);
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
 
   return (
     <div
+      ref={barRef}
       className="vscroll"
       style={{
         flex: "0 0 auto",
@@ -63,28 +100,14 @@ export function TabBar({ split }: { split?: boolean }) {
         return (
           <div
             key={i}
-            onClick={() => onSelect(i)}
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.effectAllowed = "move";
-              // Firefox won't start a drag without some data set.
-              e.dataTransfer.setData("text/plain", label);
-              setDrag({ from: i, drop: i });
+            data-tab-index={i}
+            onClick={() => {
+              if (!suppressClick.current) onSelect(i);
             }}
-            onDragOver={(e) => {
-              if (!drag) return;
-              e.preventDefault();
-              e.dataTransfer.dropEffect = "move";
-              const g = dropGap(e, i);
-              if (g !== drag.drop) setDrag({ ...drag, drop: g });
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              finishDrag();
-            }}
-            onDragEnd={() => setDrag(null)}
+            onMouseDown={(e) => startDrag(e, i, label)}
             style={{
-              opacity: drag && drag.from === i ? 0.45 : 1,
+              userSelect: "none",
+              opacity: drag && drag.from === i ? 0.35 : 1,
               boxShadow:
                 drag && drag.drop === i && drag.drop !== drag.from && drag.drop !== drag.from + 1
                   ? "inset 2px 0 0 var(--accent-text, var(--accent, #b0623b))"
@@ -130,6 +153,7 @@ export function TabBar({ split }: { split?: boolean }) {
       >
         +
       </div>
+      <DragGhost g={ghost} />
     </div>
   );
 }

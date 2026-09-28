@@ -17,6 +17,7 @@ import {
 import type { Note } from "@/types/vault";
 import { searchNotes, searchCategories, isClosestOnly } from "@/lib/search";
 import { Highlighted } from "@/components/search/Highlighted";
+import { DragGhost, ghostFrom, type GhostState } from "./DragGhost";
 
 const SORT_DEFS: [string, string][] = [
   ["name-az", "File name (A to Z)"],
@@ -305,7 +306,7 @@ export function Sidebar() {
   // it's not worth chasing further; this reimplements drag-and-drop on
   // plain mouse events instead, which don't depend on the browser/OS
   // recognizing a "drag gesture" at all — just an ordinary click-hold-move.
-  const [ghost, setGhost] = useState<{ x: number; y: number; label: string } | null>(null);
+  const [ghost, setGhost] = useState<GhostState | null>(null);
 
   function dropTargetAt(x: number, y: number): { folder: string | null; root: boolean } {
     const el = document.elementFromPoint(x, y);
@@ -318,6 +319,7 @@ export function Sidebar() {
     if (e.button !== 0) return;
     const startX = e.clientX,
       startY = e.clientY;
+    const base = ghostFrom(e, e.currentTarget as HTMLElement, note.title || "Untitled", "note");
     let dragging = false;
     function onMove(ev: MouseEvent) {
       if (!dragging) {
@@ -325,7 +327,7 @@ export function Sidebar() {
         dragging = true;
         s.setDraggingId(note.id);
       }
-      setGhost({ x: ev.clientX, y: ev.clientY, label: note.title || "Untitled" });
+      setGhost({ ...base, x: ev.clientX, y: ev.clientY });
       const t = dropTargetAt(ev.clientX, ev.clientY);
       s.setDragOverFolder(t.folder);
     }
@@ -349,6 +351,7 @@ export function Sidebar() {
     if (e.button !== 0) return;
     const startX = e.clientX,
       startY = e.clientY;
+    const base = ghostFrom(e, e.currentTarget as HTMLElement, name.split("/").pop() || name, "folder");
     let dragging = false;
     function onMove(ev: MouseEvent) {
       if (!dragging) {
@@ -356,7 +359,7 @@ export function Sidebar() {
         dragging = true;
         s.setDraggingFolder(name);
       }
-      setGhost({ x: ev.clientX, y: ev.clientY, label: name });
+      setGhost({ ...base, x: ev.clientX, y: ev.clientY });
       const t = dropTargetAt(ev.clientX, ev.clientY);
       const target = t.folder && t.folder !== name ? t.folder : null;
       s.setDragOverFolder(target);
@@ -719,30 +722,7 @@ export function Sidebar() {
         </span>
       </div>
       )}
-      {ghost && (
-        <div
-          style={{
-            position: "fixed",
-            left: ghost.x + 14,
-            top: ghost.y + 10,
-            zIndex: 999,
-            maxWidth: 220,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            background: "var(--panel)",
-            border: `1px solid ${accent}`,
-            borderRadius: 7,
-            padding: "5px 10px",
-            fontSize: 12.5,
-            color: "var(--ink)",
-            boxShadow: "0 6px 18px -4px rgba(0,0,0,.35)",
-            pointerEvents: "none",
-          }}
-        >
-          {ghost.label}
-        </div>
-      )}
+      <DragGhost g={ghost} />
     </>
   );
 }
