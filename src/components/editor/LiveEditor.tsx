@@ -206,7 +206,7 @@ export function LiveEditor({ note }: { note: Note }) {
       onOpenSearch: openSearch,
       onUndo: () => undo(noteIdRef.current),
       onRedo: () => redo(noteIdRef.current),
-      onPasteFiles: (files) => attachFilesToCurrentNote(files),
+      onPasteFiles: (files) => attachFilesToCurrentNote(files, noteIdRef.current),
       copyText,
       accentText,
       codeColor: "var(--code)",

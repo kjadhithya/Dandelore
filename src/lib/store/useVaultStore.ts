@@ -269,6 +269,7 @@ export interface VaultStore extends VaultState {
   importJson: (data: unknown) => { ok: boolean; error?: string };
   attachFiles: (
     files: { name: string; type: string; dataUrl: string }[],
+    noteId?: string,
   ) => void;
 
   // note context menu
@@ -1389,8 +1390,8 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     });
     return { ok: true };
   },
-  attachFiles: (files) => {
-    const id = get().curId();
+  attachFiles: (files, noteId) => {
+    const id = noteId || get().curId();
     if (!id || !files.length) return;
     const add: Record<string, Attachment> = {};
     const inserts: string[] = [];
