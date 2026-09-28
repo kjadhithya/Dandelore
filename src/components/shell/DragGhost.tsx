@@ -32,9 +32,11 @@ export function DragGhost({ g }: { g: GhostState | null }) {
         <path d="M14 3v5h5" />
       </>
     );
-  // Styled after the file-manager convention (Drive, Finder): a translucent
-  // grey chip with the item's icon and name, just below-right of the cursor
-  // so it never covers the drop target under the pointer.
+  // Rendered inside the .vault root (where the theme variables live) rather
+  // than <body>, so it follows the current theme; styled like the app's
+  // context menus. Sits just below-right of the cursor so it never covers
+  // the drop target under the pointer.
+  const root = document.querySelector<HTMLElement>(".vault") || document.body;
   return createPortal(
     <div
       style={{
@@ -50,21 +52,21 @@ export function DragGhost({ g }: { g: GhostState | null }) {
         gap: 9,
         boxSizing: "border-box",
         padding: "0 14px",
-        background: "rgba(128,128,128,.55)",
-        backdropFilter: "blur(6px)",
-        WebkitBackdropFilter: "blur(6px)",
-        borderRadius: 9,
-        boxShadow: "0 8px 24px -6px rgba(0,0,0,.35)",
-        fontSize: 13.5,
+        background: "var(--panel)",
+        border: "1px solid var(--border)",
+        borderRadius: 10,
+        boxShadow: "0 18px 44px -12px rgba(0,0,0,.45)",
+        opacity: 0.96,
+        fontSize: 13,
         fontWeight: 500,
-        color: "#fff",
+        color: "var(--ink)",
       }}
     >
-      <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" style={{ flex: "0 0 auto", opacity: 0.9 }}>
+      <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinejoin="round" style={{ flex: "0 0 auto", color: "var(--muted)" }}>
         {icon}
       </svg>
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.label}</span>
     </div>,
-    document.body,
+    root,
   );
 }
