@@ -119,6 +119,8 @@ export interface VaultStore extends VaultState {
   showFiles: () => void;
   selectTab: (i: number) => void;
   closeTab: (i: number) => void;
+  /** Drag-reorder a tab in the main pane (split: true for the split pane). */
+  moveTab: (from: number, to: number, split?: boolean) => void;
 
   // split
   splitOpen: (dir: "right" | "down") => void;
@@ -531,6 +533,21 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   showFiles: () => set({ sideMode: "files", leftOpen: true }),
   selectTab: (i) =>
     set({ active: i, catMenuOpen: false, noteMenuOpen: false, metaOpen: false, linkQuery: null, lastPane: "main" }),
+  moveTab: (from, to, split) =>
+    set((s) => {
+      const src = split ? s.split?.tabs : s.tabs;
+      if (!src || from === to || from < 0 || to < 0 || from >= src.length || to >= src.length) return {};
+      const tabs = [...src];
+      const [t] = tabs.splice(from, 1);
+      tabs.splice(to, 0, t);
+      // Keep the same tab active wherever it (or the dragged tab) ends up.
+      const cur = split ? s.split!.active : s.active;
+      let active = cur;
+      if (cur === from) active = to;
+      else if (from < cur && to >= cur) active = cur - 1;
+      else if (from > cur && to <= cur) active = cur + 1;
+      return split ? { split: { ...s.split!, tabs, active } } : { tabs, active };
+    }),
   closeTab: (i) =>
     set((s) => {
       const tabs = s.tabs.filter((_, k) => k !== i);

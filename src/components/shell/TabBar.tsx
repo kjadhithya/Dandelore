@@ -27,6 +27,22 @@ export function TabBar({ split }: { split?: boolean }) {
   const onClose = (i: number) => (split ? s.splitCloseTab(i) : s.closeTab(i));
   const onNew = () => (split ? s.splitNewTab() : s.newTab());
 
+  // Drag to reorder: `drop` is the gap the dragged tab would land in
+  // (0 = before the first tab, tabs.length = after the last), shown as an
+  // accent bar on that edge.
+  const [drag, setDrag] = useState<{ from: number; drop: number } | null>(null);
+  const dropGap = (e: React.DragEvent, i: number) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    return e.clientX < r.left + r.width / 2 ? i : i + 1;
+  };
+  const finishDrag = () => {
+    if (drag) {
+      const to = drag.drop > drag.from ? drag.drop - 1 : drag.drop;
+      if (to !== drag.from) s.moveTab(drag.from, to, split);
+    }
+    setDrag(null);
+  };
+
   return (
     <div
       className="vscroll"
@@ -48,7 +64,33 @@ export function TabBar({ split }: { split?: boolean }) {
           <div
             key={i}
             onClick={() => onSelect(i)}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = "move";
+              // Firefox won't start a drag without some data set.
+              e.dataTransfer.setData("text/plain", label);
+              setDrag({ from: i, drop: i });
+            }}
+            onDragOver={(e) => {
+              if (!drag) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              const g = dropGap(e, i);
+              if (g !== drag.drop) setDrag({ ...drag, drop: g });
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              finishDrag();
+            }}
+            onDragEnd={() => setDrag(null)}
             style={{
+              opacity: drag && drag.from === i ? 0.45 : 1,
+              boxShadow:
+                drag && drag.drop === i && drag.drop !== drag.from && drag.drop !== drag.from + 1
+                  ? "inset 2px 0 0 var(--accent-text, var(--accent, #b0623b))"
+                  : drag && i === tabs.length - 1 && drag.drop === tabs.length && drag.from !== tabs.length - 1
+                    ? "inset -2px 0 0 var(--accent-text, var(--accent, #b0623b))"
+                    : "none",
               display: "flex",
               alignItems: "center",
               gap: 7,

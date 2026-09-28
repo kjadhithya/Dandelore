@@ -609,7 +609,14 @@ export function Sidebar() {
                     </div>
                   )}
                   {searchResults.map(({ note, snippet }) => (
-                    <div key={note.id} style={{ marginBottom: 10 }}>
+                    <div
+                      key={note.id}
+                      style={{ marginBottom: 10 }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        s.onNoteContext(note.id, e.clientX, e.clientY);
+                      }}
+                    >
                       <div
                         onClick={() => {
                           s.navigate(note.id);

@@ -106,6 +106,10 @@ export function JournalView() {
               <div
                 key={note.id}
                 onClick={() => s.navigate(note.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  s.onNoteContext(note.id, e.clientX, e.clientY);
+                }}
                 style={{ cursor: "pointer", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 9, padding: "10px 13px" }}
               >
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>{note.title}</div>

@@ -147,7 +147,11 @@ export function MainPane() {
         paddingBottom: isMobile ? "calc(56px + env(safe-area-inset-bottom, 0px))" : 0,
       }}
     >
-      <div onClick={() => s.setMainPane()} style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      {/* Capture phase: the pane has to become the "current" one *before* a
+          click inside it runs — navigation targets whichever pane is current,
+          so with a bubbling onClick the first click in a category page or
+          link inside the other pane opened its note in the wrong pane. */}
+      <div onMouseDownCapture={() => s.setMainPane()} onFocusCapture={() => s.setMainPane()} style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <TabBar />
         <PaneContent />
       </div>
@@ -192,7 +196,8 @@ export function MainPane() {
             </span>
           </div>
           <div
-            onClick={() => s.setSplitPane()}
+            onMouseDownCapture={() => s.setSplitPane()}
+            onFocusCapture={() => s.setSplitPane()}
             style={{ flex: `0 0 ${100 - s.splitSize}%`, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--bg)" }}
           >
             <TabBar split />

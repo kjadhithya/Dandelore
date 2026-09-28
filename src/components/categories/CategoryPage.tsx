@@ -127,6 +127,10 @@ export function CategoryPage({ name }: { name: string }) {
               <div
                 key={n.id}
                 onClick={() => s.navigate(n.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  s.onNoteContext(n.id, e.clientX, e.clientY);
+                }}
                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 10px", borderBottom: "1px solid var(--border-soft)", cursor: "pointer" }}
               >
                 <span style={{ flex: 1, fontSize: 14, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title || "Untitled"}</span>

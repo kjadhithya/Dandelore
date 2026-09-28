@@ -15,7 +15,7 @@ export type PopupState =
 export type BlockKind = "body" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "bullet" | "ol" | "task" | "quote";
 
 export type CtxMenuState =
-  | { kind: "para"; x: number; y: number; line: HTMLDivElement; blockKind: BlockKind }
+  | { kind: "para"; x: number; y: number; line: HTMLDivElement; lines: HTMLDivElement[]; blockKind: BlockKind }
   | { kind: "link"; x: number; y: number; title: string }
   | null;
 
@@ -1002,6 +1002,8 @@ export class EditorEngine {
    * click landed on a [[wikilink]] — or a "para" context carrying the
    * clicked line's current block kind, so the paragraph submenu can show
    * a checkmark next to it. */
+  private rightDownLink: string | null = null;
+
   onContextMenu(e: MouseEvent) {
     // On a touch device, a long-press's contextmenu and its "select this
     // word, show the selection handles" default action are the same
@@ -1016,8 +1018,14 @@ export class EditorEngine {
     e.preventDefault();
     const t = e.target as HTMLElement;
     const wl = t.closest && (t.closest("[data-wikilink]") as HTMLElement | null);
-    if (wl) {
-      this.showCtxMenu({ kind: "link", x: e.clientX, y: e.clientY, title: wl.getAttribute("data-wikilink") || "" });
+    // On Windows the menu event comes after mouseup, which activates the
+    // line and reveals its "[[" markers — the text shifts, and the pointer
+    // can end up just off the link. Fall back to what was under it at
+    // mousedown.
+    const linkTitle = wl ? wl.getAttribute("data-wikilink") || "" : this.rightDownLink;
+    this.rightDownLink = null;
+    if (linkTitle) {
+      this.showCtxMenu({ kind: "link", x: e.clientX, y: e.clientY, title: linkTitle });
       return;
     }
     const lineEl = t.closest && (t.closest(".ln") as HTMLDivElement | null);
@@ -1025,7 +1033,34 @@ export class EditorEngine {
       this.deps.onCtxMenuChange(null);
       return;
     }
-    this.showCtxMenu({ kind: "para", x: e.clientX, y: e.clientY, line: lineEl, blockKind: this.blockKindOf(lineEl.textContent || "") });
+    this.showCtxMenu({ kind: "para", x: e.clientX, y: e.clientY, line: lineEl, lines: this.menuLines(lineEl), blockKind: this.blockKindOf(lineEl.textContent || "") });
+  }
+
+  /** The lines a Paragraph-menu choice should apply to: every line of a
+   * multi-line selection that includes the clicked line, otherwise just the
+   * clicked line. Captured when the menu opens, because clicking a menu item
+   * can clear the selection before the choice is applied. */
+  menuLines(lineEl: HTMLDivElement): HTMLDivElement[] {
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) {
+      const lines = this.selectedLines();
+      if (lines.length > 1 && lines.includes(lineEl)) return lines;
+    }
+    return [lineEl];
+  }
+
+  /** setBlockType across several lines, top to bottom — so "Numbered list"
+   * on a selection numbers it 1, 2, 3 — skipping blank lines, which
+   * shouldn't turn into empty bullets. */
+  setBlockTypeLines(lines: HTMLDivElement[], kind: BlockKind) {
+    const live = lines.filter((l) => this.ed?.contains(l));
+    if (live.length <= 1) {
+      if (live[0]) this.setBlockType(live[0], kind);
+      return;
+    }
+    for (const l of live) if ((l.textContent || "").trim()) this.setBlockType(l, kind, false);
+    this.ed?.focus();
+    this.commit();
   }
 
   closeCtxMenu() {
@@ -1056,7 +1091,7 @@ export class EditorEngine {
     if (!l1) return;
     const lineEl = l1 as HTMLDivElement;
     const rect = rng.getBoundingClientRect();
-    this.showCtxMenu({ kind: "para", x: rect.left, y: rect.bottom + 8, line: lineEl, blockKind: this.blockKindOf(lineEl.textContent || "") });
+    this.showCtxMenu({ kind: "para", x: rect.left, y: rect.bottom + 8, line: lineEl, lines: this.menuLines(lineEl), blockKind: this.blockKindOf(lineEl.textContent || "") });
   }
 
   /** Deletes whatever's currently selected, merging the two ends together
@@ -1240,9 +1275,12 @@ export class EditorEngine {
   /** Applies a block-level markdown prefix (heading/bullet/numbered/task/
    * quote, or plain "body" to strip one) to a single line, used by the
    * right-click Paragraph submenu. */
-  setBlockType(line: HTMLDivElement, kind: BlockKind) {
+  setBlockType(line: HTMLDivElement, kind: BlockKind, finish = true) {
     const text = line.textContent || "";
     const content = this.stripBlockPrefix(text);
+    // Switching between list types (bullet ↔ numbered ↔ task) keeps the
+    // line's nesting level.
+    const indent = /^\s*([-*]|\d+\.)\s/.test(text) ? text.match(/^\s*/)![0] : "";
     let nt: string;
     switch (kind) {
       case "body":
@@ -1257,7 +1295,7 @@ export class EditorEngine {
         nt = "#".repeat(Number(kind[1])) + " " + content;
         break;
       case "bullet":
-        nt = "- " + content;
+        nt = indent + "- " + content;
         break;
       case "ol": {
         // Continue the immediately preceding line's numbering if it's
@@ -1269,17 +1307,18 @@ export class EditorEngine {
         const prevText = (line.previousElementSibling as HTMLDivElement | null)?.textContent || "";
         const m = prevText.match(/^\s*(\d+)\.\s+/);
         const n = m ? parseInt(m[1], 10) + 1 : 1;
-        nt = n + ". " + content;
+        nt = indent + n + ". " + content;
         break;
       }
       case "task":
-        nt = "- [ ] " + content;
+        nt = indent + "- [ ] " + content;
         break;
       case "quote":
         nt = "> " + content;
         break;
     }
     this.updateLine(line, nt);
+    if (!finish) return;
     this.setActive(line);
     this.setCol(line, nt.length);
     this.ed?.focus();
@@ -1307,6 +1346,10 @@ export class EditorEngine {
 
   onEditorMouseDown(e: MouseEvent) {
     const t = e.target as HTMLElement;
+    if (e.button === 2) {
+      const wl = t.closest && (t.closest("[data-wikilink]") as HTMLElement | null);
+      this.rightDownLink = wl ? wl.getAttribute("data-wikilink") || "" : null;
+    }
     const lineEl = t.closest && (t.closest(".ln") as HTMLDivElement | null);
     if (!lineEl || !this.ed?.contains(lineEl)) {
       this.lastMouseDown = null;

@@ -10,6 +10,7 @@ export function ReadingView({ note }: { note: Note }) {
   const byTitle = useVaultStore((s) => s.byTitle);
   const openOrCreate = useVaultStore((s) => s.openOrCreate);
   const openSearch = useVaultStore((s) => s.openSearch);
+  const onNoteContext = useVaultStore((s) => s.onNoteContext);
   const setNoteContent = useVaultStore((s) => s.setNoteContent);
   const noteFont = useVaultStore((s) => s.noteFont);
   const { accentText, accentFadedRgba } = useDerivedTheme();
@@ -63,9 +64,23 @@ export function ReadingView({ note }: { note: Note }) {
     }
   }
 
+  // Right-click on a [[link]] to an existing note gets the same note menu
+  // as the sidebar (open in new tab / split, bookmark, ...). Links to notes
+  // that don't exist yet keep the browser's own menu rather than creating
+  // a note just to show a menu for it.
+  function onContextMenu(e: React.MouseEvent) {
+    const t = e.target as HTMLElement;
+    const wl = t.closest && (t.closest("[data-wikilink]") as HTMLElement | null);
+    const target = wl && byTitle(wl.getAttribute("data-wikilink") || "");
+    if (!target) return;
+    e.preventDefault();
+    onNoteContext(target.id, e.clientX, e.clientY);
+  }
+
   return (
     <div
       className="liveedit readview"
+      onContextMenu={onContextMenu}
       style={{ fontFamily: FONTS[noteFont] || FONTS.Serif, fontSize: 15.5, color: "var(--ink)" }}
       onClick={onClick}
       dangerouslySetInnerHTML={{ __html: html }}

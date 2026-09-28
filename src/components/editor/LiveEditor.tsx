@@ -400,7 +400,7 @@ export function LiveEditor({ note }: { note: Note }) {
                 <ParaMenu
                   blockKind={ctxMenu.blockKind}
                   onApply={(kind) => {
-                    engineRef.current!.setBlockType(ctxMenu.line, kind);
+                    engineRef.current!.setBlockTypeLines(ctxMenu.lines, kind);
                     setCtxMenu(null);
                   }}
                   placement={submenuPlacement}

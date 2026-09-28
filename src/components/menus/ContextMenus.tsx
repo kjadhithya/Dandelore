@@ -44,6 +44,15 @@ export function NoteContextMenu() {
             <Item onClick={() => s.ctxOpenNote()}>Open in new tab</Item>
             <Item
               onClick={() => {
+                const id = s.ctxMenu!.id;
+                s.closeCtx();
+                s.openNoteInSplit(id);
+              }}
+            >
+              Open in split view
+            </Item>
+            <Item
+              onClick={() => {
                 s.toggleBookmark(s.ctxMenu!.id);
                 s.closeCtx();
               }}

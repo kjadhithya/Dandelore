@@ -238,6 +238,10 @@ export function CategoriesView() {
                         <div
                           key={n.id}
                           onClick={() => s.navigate(n.id)}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            s.onNoteContext(n.id, e.clientX, e.clientY);
+                          }}
                           style={{ fontSize: 13, color: "var(--text)", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                         >
                           {n.title || "Untitled"}
