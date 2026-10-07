@@ -13,7 +13,7 @@ const SERIF = "var(--font-spectral), Georgia, serif";
 
 const card: React.CSSProperties = {
   position: "relative",
-  width: 460,
+  width: 420,
   maxWidth: "calc(100vw - 32px)",
   background: "rgba(34, 30, 27, 0.93)",
   backdropFilter: "blur(14px)",
