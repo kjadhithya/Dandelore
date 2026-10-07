@@ -30,7 +30,7 @@ const card: React.CSSProperties = {
 // Focus ring, placeholder and hover states can't be expressed inline.
 const authCss = `
 .auth-input {
-  display: block; width: 100%; box-sizing: border-box; margin-bottom: 12px;
+  display: block; width: 100%; box-sizing: border-box; margin-bottom: 16px;
   height: 42px; padding: 0 14px; font: 400 14px/1.3 ${SANS}; color: #fff;
   background: rgba(255, 255, 255, 0.09); border: 1.5px solid transparent; border-radius: 8px;
   outline: none; transition: border-color .15s;
@@ -38,7 +38,7 @@ const authCss = `
 .auth-input::placeholder { color: rgba(255, 255, 255, 0.4); }
 .auth-input:focus { border-color: #b0623b; }
 .auth-primary {
-  display: block; width: 100%; height: 42px; margin: 8px 0 24px; padding: 0 16px;
+  display: block; width: 100%; height: 42px; margin: 24px 0 24px; padding: 0 16px;
   font: 600 14px/1.2 ${SANS}; color: #fff; background: #cc7a4f; border: 0; border-radius: 8px;
   cursor: pointer; transition: background-color .12s;
 }
@@ -225,7 +225,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         />
       )}
       {mode === "signin" && (
-        <div style={{ textAlign: "right", margin: "-4px 2px 10px" }}>
+        <div style={{ textAlign: "right", margin: "-6px 2px 0" }}>
           <span className="auth-forgot" onClick={() => switchMode("forgot")}>
             Forgot password?
           </span>
