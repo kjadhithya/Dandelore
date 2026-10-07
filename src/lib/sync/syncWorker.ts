@@ -376,6 +376,10 @@ async function pullSettings(vaultId: string): Promise<string> {
       await pushSettings(vaultId);
     }
   } else {
+    // No settings row yet means a brand-new vault (a new account) — start it
+    // on the Dark theme. Existing vaults always have a row, so they keep
+    // whatever theme they already have.
+    useVaultStore.setState({ themeOverride: "Dark" });
     const { error: upsertErr } = await supabase.from("vault_settings").upsert(settingsToRow(vaultId));
     if (upsertErr) reportSyncError("Saving settings", upsertErr.message);
   }

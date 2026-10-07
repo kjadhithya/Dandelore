@@ -72,7 +72,7 @@ export function VaultShell() {
       if (t) useVaultStore.setState({ themeOverride: t as never });
       const a = localStorage.getItem("kv-accent");
       if (a) useVaultStore.setState({ accentOverride: a });
-      const r = localStorage.getItem("kv-showRight");
+      const r = localStorage.getItem("kv-backlinksOpen");
       if (r !== null) useVaultStore.setState({ showRight: r === "1" });
       const af = localStorage.getItem("kv-appFont");
       if (af) useVaultStore.setState({ appFont: af as never });
@@ -86,11 +86,13 @@ export function VaultShell() {
   }, []);
 
   // Backlinks visibility is a layout preference, not vault data — persist it
-  // like theme/accent so closing it sticks across reloads instead of always
-  // reopening from the store's static initial state.
+  // like theme/accent so opening/closing it sticks across reloads. Backlinks
+  // start closed until the user opens them; the key was renamed from
+  // kv-showRight because that one was written as "1" for everyone back when
+  // the panel defaulted to open, which would otherwise keep it open.
   useEffect(() => {
     try {
-      localStorage.setItem("kv-showRight", s.showRight ? "1" : "0");
+      localStorage.setItem("kv-backlinksOpen", s.showRight ? "1" : "0");
     } catch {}
   }, [s.showRight]);
 
@@ -135,7 +137,7 @@ export function VaultShell() {
     document.body.style.background = THEME_BG[theme] || THEME_BG["Light Warm"];
   }, [theme]);
 
-  // Sidebar and backlinks default to open on desktop; on phones they're
+  // The sidebar defaults to open on desktop; on phones it and backlinks are
   // overlays that should start closed so the note content is visible first.
   useEffect(() => {
     if (isMobile) useVaultStore.setState({ showRight: false, leftOpen: false });
