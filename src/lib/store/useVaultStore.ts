@@ -159,6 +159,7 @@ export interface VaultStore extends VaultState {
   openOrCreate: (title: string, folder?: string) => void;
   ensureNote: (title: string, folder?: string) => string;
   newNote: (category?: string) => void;
+  openNewNoteMeta: () => void;
   deleteNote: (id: string) => void;
   duplicateNote: (id: string) => void;
   deleteCurrent: () => void;
@@ -712,6 +713,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     }
     const id = get().ensureNote(title, folder);
     get().navigate(id!);
+    get().openNewNoteMeta();
   },
   // Creates the note a [[wikilink]] points at if it doesn't exist yet,
   // without navigating away — used when a link is *inserted* while typing
@@ -749,6 +751,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     };
     set((s) => ({ notes: [...s.notes, note], reading: false }));
     get().navigate(id);
+    get().openNewNoteMeta();
   },
   deleteNote: (id) =>
     set((s) => {
@@ -977,6 +980,12 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
 
   // ---------- meta / category / tags ----------
   openMeta: () => set({ metaOpen: true, noteMenuOpen: false }),
+  // A freshly created note opens with its properties panel showing, in
+  // whichever pane it was opened in.
+  openNewNoteMeta: () => {
+    if (get().lastPane === "split" && get().split) get().splitOpenMeta();
+    else get().openMeta();
+  },
   closeMeta: () => set({ metaOpen: false, catMenuOpen: false }),
   toggleCatMenu: () => set((s) => ({ catMenuOpen: !s.catMenuOpen, catQuery: "" })),
   setCategory: (cat) => {
