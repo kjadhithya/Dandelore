@@ -1223,9 +1223,8 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       set({ selectedIds: order.slice(lo, hi + 1) });
       return;
     }
-    if (get().selectedIds.length) {
-      set({ selectedIds: [], selectAnchor: id });
-    }
+    // A plain click also marks where a later Shift-click range starts.
+    set({ selectedIds: [], selectAnchor: id });
     get().navigate(id);
   },
   openBulkCtx: (x, y) => set({ bulkCtx: { x, y, move: false } }),

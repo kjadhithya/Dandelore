@@ -319,7 +319,12 @@ export function Sidebar() {
     if (e.button !== 0) return;
     const startX = e.clientX,
       startY = e.clientY;
-    const base = ghostFrom(e, e.currentTarget as HTMLElement, note.title || "Untitled", "note");
+    // Dragging a note that's part of a multi-selection moves the whole
+    // selection, not just the row under the cursor.
+    const sel = useVaultStore.getState().selectedIds;
+    const multi = sel.length > 1 && sel.includes(note.id);
+    const label = multi ? `${sel.length} notes` : note.title || "Untitled";
+    const base = ghostFrom(e, e.currentTarget as HTMLElement, label, "note");
     let dragging = false;
     function onMove(ev: MouseEvent) {
       if (!dragging) {
@@ -336,8 +341,11 @@ export function Sidebar() {
       document.removeEventListener("mouseup", onUp);
       if (dragging) {
         const t = dropTargetAt(ev.clientX, ev.clientY);
-        if (t.folder) s.moveNoteTo(note.id, t.folder);
-        else if (t.root) s.moveNoteTo(note.id, "");
+        const dest = t.folder ?? (t.root ? "" : null);
+        if (dest !== null) {
+          if (multi) s.bulkMoveTo(dest);
+          else s.moveNoteTo(note.id, dest);
+        }
         s.setDraggingId(null);
         s.setDragOverFolder(null);
         setGhost(null);
@@ -650,7 +658,7 @@ export function Sidebar() {
             )}
           </div>
         ) : (
-          <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "2px 8px 14px" }}>
+          <div className="vscroll" data-drop-root="1" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "2px 8px 14px" }}>
             {s.selectedIds.length > 0 && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 2px 8px", padding: "6px 10px", background: "var(--panel)", borderRadius: 8, fontSize: 12, color: "var(--muted)" }}>
                 <span style={{ flex: 1 }}>{s.selectedIds.length} selected</span>
