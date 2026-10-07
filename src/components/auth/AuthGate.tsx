@@ -13,7 +13,7 @@ const SERIF = "var(--font-spectral), Georgia, serif";
 
 const card: React.CSSProperties = {
   position: "relative",
-  width: 380,
+  width: 460,
   maxWidth: "calc(100vw - 32px)",
   background: "rgba(34, 30, 27, 0.93)",
   backdropFilter: "blur(14px)",
@@ -31,8 +31,8 @@ const card: React.CSSProperties = {
 const authCss = `
 .auth-input {
   display: block; width: 100%; box-sizing: border-box; margin-bottom: 12px;
-  padding: 13px 16px; font: 400 14px/1.3 ${SANS}; color: #fff;
-  background: rgba(255, 255, 255, 0.09); border: 1.5px solid transparent; border-radius: 12px;
+  padding: 9px 14px; font: 400 14px/1.3 ${SANS}; color: #fff;
+  background: rgba(255, 255, 255, 0.09); border: 1.5px solid transparent; border-radius: 8px;
   outline: none; transition: border-color .15s;
 }
 .auth-input::placeholder { color: rgba(255, 255, 255, 0.4); }
