@@ -7,6 +7,52 @@ import { normalizeLineEndings } from "@/lib/text";
 import type { Note } from "@/types/vault";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
+/* Folders/categories are whole-list syncs with no per-row timestamps, which
+ * made two things go wrong. Applying a pulled list looked like a local edit,
+ * so every pull pushed the same list straight back (with realtime on, that
+ * push's own events triggered another pull — an endless loop). And a pull
+ * landing between a local edit and its debounced push overwrote the edit
+ * and then pushed the stale list, which is how a deleted category kept
+ * coming back. `applyingRemoteLists` marks pull-applied lists so the store
+ * subscriber doesn't echo them; the version counters keep a pull from
+ * clobbering a local edit that hasn't been pushed yet. */
+let applyingRemoteLists = false;
+let folderVersion = 0;
+let folderPushedVersion = 0;
+let categoryVersion = 0;
+let categoryPushedVersion = 0;
+
+function applyRemoteFolders(remoteFolders: { name: string; parent: string | null }[]) {
+  if (folderVersion !== folderPushedVersion) return;
+  const folderList = remoteFolders.map((f) => f.name);
+  const folderParents: Record<string, string | null> = {};
+  remoteFolders.forEach((f) => {
+    folderParents[f.name] = f.parent;
+  });
+  applyingRemoteLists = true;
+  try {
+    useVaultStore.setState({ folderList, folderParents });
+  } finally {
+    applyingRemoteLists = false;
+  }
+}
+
+function applyRemoteCategories(remoteCategories: { name: string }[]) {
+  if (categoryVersion !== categoryPushedVersion) return;
+  applyingRemoteLists = true;
+  try {
+    useVaultStore.setState({ categories: remoteCategories.map((c) => c.name) });
+  } finally {
+    applyingRemoteLists = false;
+  }
+}
+
+/** PostgREST `in` list with each value double-quoted and escaped, so names
+ * containing quotes, commas or parentheses don't break the filter. */
+function quotedList(names: string[]): string {
+  return `(${names.map((n) => `"${n.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(",")})`;
+}
+
 interface RemoteNoteRow {
   id: string;
   title: string;
@@ -188,18 +234,8 @@ async function pullAndMerge(vaultId: string) {
   }
   await addSyncedIds(actuallySynced);
 
-  if (remoteFolders) {
-    const folderList = remoteFolders.map((f) => f.name);
-    const folderParents: Record<string, string | null> = {};
-    remoteFolders.forEach((f) => {
-      folderParents[f.name] = f.parent;
-    });
-    useVaultStore.setState({ folderList, folderParents });
-  }
-
-  if (remoteCategories) {
-    useVaultStore.setState({ categories: remoteCategories.map((c) => c.name) });
-  }
+  if (remoteFolders) applyRemoteFolders(remoteFolders);
+  if (remoteCategories) applyRemoteCategories(remoteCategories);
 }
 
 /** Re-fetches just folders/categories, for the realtime handlers below —
@@ -214,17 +250,8 @@ async function pullFoldersAndCategories(vaultId: string) {
     supabase.from("folders").select("name, parent").eq("vault_id", vaultId),
     supabase.from("categories").select("name").eq("vault_id", vaultId),
   ]);
-  if (remoteFolders) {
-    const folderList = remoteFolders.map((f) => f.name);
-    const folderParents: Record<string, string | null> = {};
-    remoteFolders.forEach((f) => {
-      folderParents[f.name] = f.parent;
-    });
-    useVaultStore.setState({ folderList, folderParents });
-  }
-  if (remoteCategories) {
-    useVaultStore.setState({ categories: remoteCategories.map((c) => c.name) });
-  }
+  if (remoteFolders) applyRemoteFolders(remoteFolders);
+  if (remoteCategories) applyRemoteCategories(remoteCategories);
 }
 
 /** Surfaces the last Supabase push/pull failure in Settings — errors here
@@ -276,32 +303,42 @@ async function pushNoteDelete(vaultId: string, noteId: string) {
  * for folders no longer present locally, then upserts the rest. Folders have
  * no per-row modified timestamp, so unlike notes this sync is "local always
  * wins" rather than last-write-wins. */
-async function pushFolders(vaultId: string, folderList: string[], folderParents: Record<string, string | null>) {
+async function pushFolders(vaultId: string, folderList: string[], folderParents: Record<string, string | null>): Promise<boolean> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return false;
+  let error;
   if (folderList.length) {
-    await supabase.from("folders").delete().eq("vault_id", vaultId).not("name", "in", `(${folderList.map((n) => `"${n}"`).join(",")})`);
-    await supabase.from("folders").upsert(
-      folderList.map((name) => ({ vault_id: vaultId, name, parent: folderParents[name] ?? null })),
-      { onConflict: "vault_id,name" },
-    );
+    ({ error } = await supabase.from("folders").delete().eq("vault_id", vaultId).not("name", "in", quotedList(folderList)));
+    if (!error) {
+      ({ error } = await supabase.from("folders").upsert(
+        folderList.map((name) => ({ vault_id: vaultId, name, parent: folderParents[name] ?? null })),
+        { onConflict: "vault_id,name" },
+      ));
+    }
   } else {
-    await supabase.from("folders").delete().eq("vault_id", vaultId);
+    ({ error } = await supabase.from("folders").delete().eq("vault_id", vaultId));
   }
+  if (error) reportSyncError("Saving folders", error.message);
+  return !error;
 }
 
-async function pushCategories(vaultId: string, categories: string[]) {
+async function pushCategories(vaultId: string, categories: string[]): Promise<boolean> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return false;
+  let error;
   if (categories.length) {
-    await supabase.from("categories").delete().eq("vault_id", vaultId).not("name", "in", `(${categories.map((n) => `"${n}"`).join(",")})`);
-    await supabase.from("categories").upsert(
-      categories.map((name) => ({ vault_id: vaultId, name })),
-      { onConflict: "vault_id,name" },
-    );
+    ({ error } = await supabase.from("categories").delete().eq("vault_id", vaultId).not("name", "in", quotedList(categories)));
+    if (!error) {
+      ({ error } = await supabase.from("categories").upsert(
+        categories.map((name) => ({ vault_id: vaultId, name })),
+        { onConflict: "vault_id,name" },
+      ));
+    }
   } else {
-    await supabase.from("categories").delete().eq("vault_id", vaultId);
+    ({ error } = await supabase.from("categories").delete().eq("vault_id", vaultId));
   }
+  if (error) reportSyncError("Saving categories", error.message);
+  return !error;
 }
 
 interface RemoteSettingsRow {
@@ -481,10 +518,16 @@ export function startSyncWorker(onReady?: () => void): () => void {
     },
   };
   const debouncedPushFolders = debounce((folderList: string[], folderParents: Record<string, string | null>) => {
-    pushFolders(vaultId, folderList, folderParents);
+    const v = folderVersion;
+    pushFolders(vaultId, folderList, folderParents).then((ok) => {
+      if (ok) folderPushedVersion = Math.max(folderPushedVersion, v);
+    });
   }, 600);
   const debouncedPushCategories = debounce((categories: string[]) => {
-    pushCategories(vaultId, categories);
+    const v = categoryVersion;
+    pushCategories(vaultId, categories).then((ok) => {
+      if (ok) categoryPushedVersion = Math.max(categoryPushedVersion, v);
+    });
   }, 600);
   const debouncedPushSettings = debounce(() => pushSettings(vaultId), 600);
   const debouncedPullFoldersCats = debounce(() => pullFoldersAndCategories(vaultId), 300);
@@ -513,11 +556,17 @@ export function startSyncWorker(onReady?: () => void): () => void {
       state.noteDeleteEvent?.ids.forEach((id) => pushNoteDelete(vaultId, id));
     }
     if (state.folderList !== prevFolderList) {
-      debouncedPushFolders.run(state.folderList, state.folderParents);
+      if (!applyingRemoteLists) {
+        folderVersion++;
+        debouncedPushFolders.run(state.folderList, state.folderParents);
+      }
       prevFolderList = state.folderList;
     }
     if (state.categories !== prevCategories) {
-      debouncedPushCategories.run(state.categories);
+      if (!applyingRemoteLists) {
+        categoryVersion++;
+        debouncedPushCategories.run(state.categories);
+      }
       prevCategories = state.categories;
     }
     // Appearance prefs (theme/accent/fonts/sort) are a single row per vault
