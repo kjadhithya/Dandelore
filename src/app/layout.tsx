@@ -58,8 +58,20 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      // The inline script below sets --boot-bg on <html> before React hydrates.
+      suppressHydrationWarning
       className={`${ibmPlexSans.variable} ${ibmPlexMono.variable} ${spectral.variable} ${inter.variable} ${lora.variable}`}
     >
+      <head>
+        {/* Paint the remembered theme's background before the app loads, so a
+            Dark-theme user doesn't see a flash of the light default first.
+            Colors match THEME_BG in src/lib/theme/tokens.ts. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("kv-theme");var c={"Light":"#f7f7f7","Light Warm":"#faf7f2","Dark":"#141414","Dark Warm":"#15130f"}[t];if(c)document.documentElement.style.setProperty("--boot-bg",c)}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

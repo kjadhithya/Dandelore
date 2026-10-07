@@ -14,7 +14,7 @@ body {
   /* Matches the default (Light Warm) --bg below; VaultShell overrides this
    * inline once mounted so the body tracks whichever theme is active
    * instead of flashing a fixed color regardless of theme. */
-  background: #faf7f2;
+  background: var(--boot-bg, #faf7f2);
   font-family: var(--font-ibm-plex-sans), system-ui, sans-serif;
 }
 

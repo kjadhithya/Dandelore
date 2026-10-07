@@ -27,6 +27,19 @@ export function VaultShell() {
   const { theme, accent, accentText, accentFadedRgba, accentFadedBorderRgba, accentSelRgba, accentButtonText } = useDerivedTheme();
   const attachInputRef = useRef<HTMLInputElement | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  // A browser that has never opened this vault (a new account, or a new
+  // device) doesn't know its theme until the first settings pull lands, and
+  // painting the vault before that showed the Light Warm fallback for a
+  // moment before switching. In that case hold a plain Dark screen (the
+  // default for new accounts) until the initial sync is ready. Safe to read
+  // localStorage here: AuthGate never renders this on the server.
+  const [themeReady, setThemeReady] = useState(() => {
+    try {
+      return !!localStorage.getItem("kv-theme");
+    } catch {
+      return true;
+    }
+  });
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -35,15 +48,22 @@ export function VaultShell() {
     function ensureDefaultNote() {
       if (useVaultStore.getState().notes.length === 0) useVaultStore.getState().newNote();
     }
+    function onSyncReady() {
+      ensureDefaultNote();
+      setThemeReady(true);
+    }
+    // Never leave the placeholder up if the first sync is slow or fails.
+    const themeTimeout = setTimeout(() => setThemeReady(true), 6000);
     hydrateFromLocalDb().then(() => {
       setHydrated(true);
       stopPersistence = startLocalPersistence();
       // Wait for the initial Supabase pull (if any) before deciding the
       // vault is truly empty, so we don't spawn a spurious note alongside
       // notes that are about to arrive from the cloud.
-      stopSync = startSyncWorker(ensureDefaultNote);
+      stopSync = startSyncWorker(onSyncReady);
     });
     return () => {
+      clearTimeout(themeTimeout);
       stopPersistence?.();
       stopSync?.();
     };
@@ -145,6 +165,7 @@ export function VaultShell() {
   }, []);
 
   if (!hydrated) return null;
+  if (!themeReady) return <div style={{ position: "fixed", inset: 0, background: THEME_BG["Dark"] }} />;
 
   const rgb = hexToRgb(accent);
 
