@@ -3,41 +3,91 @@ import React, { useEffect, useState } from "react";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { signUpWithEmail, signInWithEmail, requestPasswordReset, ensureVaultRow } from "@/lib/supabase/vaultAuth";
 import { setCurrentVaultId } from "@/lib/supabase/session";
+import { DandelionField } from "./DandelionField";
 
 type Stage = "loading" | "signedOut" | "ready" | "unconfigured";
 type Mode = "signin" | "signup" | "forgot";
 
+const SANS = "var(--font-ibm-plex-sans), system-ui, sans-serif";
+const SERIF = "var(--font-spectral), Georgia, serif";
+
 const card: React.CSSProperties = {
-  width: 400,
-  maxWidth: "92vw",
-  background: "#faf5ea",
+  position: "relative",
+  width: 380,
+  maxWidth: "calc(100vw - 32px)",
+  background: "rgba(34, 30, 27, 0.93)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
   borderRadius: 14,
-  boxShadow: "0 30px 70px -18px rgba(0,0,0,.6)",
+  boxShadow: "0 30px 80px -24px rgba(46, 15, 3, 0.55)",
   overflow: "hidden",
-  padding: "32px 28px",
-  fontFamily: "var(--font-ibm-plex-sans), system-ui, sans-serif",
-};
-const input: React.CSSProperties = {
-  width: "100%",
-  border: "1px solid #ddd2bb",
-  background: "#f7f1e4",
-  borderRadius: 8,
-  padding: "10px 12px",
-  fontSize: 13.5,
-  color: "#3c3324",
-  marginBottom: 10,
-};
-const primaryBtn: React.CSSProperties = {
-  cursor: "pointer",
-  textAlign: "center",
-  fontSize: 14,
-  fontWeight: 500,
+  padding: "32px 28px 0",
+  fontFamily: SANS,
   color: "#fff",
-  background: "#b0623b",
-  borderRadius: 9,
-  padding: "12px 16px",
-  marginTop: 4,
+  textAlign: "center",
 };
+
+// Focus ring, placeholder and hover states can't be expressed inline.
+const authCss = `
+.auth-input {
+  display: block; width: 100%; box-sizing: border-box; margin-bottom: 12px;
+  padding: 13px 16px; font: 400 14px/1.3 ${SANS}; color: #fff;
+  background: rgba(255, 255, 255, 0.09); border: 1.5px solid transparent; border-radius: 12px;
+  outline: none; transition: border-color .15s;
+}
+.auth-input::placeholder { color: rgba(255, 255, 255, 0.4); }
+.auth-input:focus { border-color: #b0623b; }
+.auth-primary {
+  display: block; width: 100%; margin: 8px 0 24px; padding: 12px 16px;
+  font: 600 14px/1.2 ${SANS}; color: #fff; background: #cc7a4f; border: 0; border-radius: 8px;
+  cursor: pointer; transition: background-color .12s;
+}
+.auth-primary:hover:not(:disabled) { background: #b86b42; }
+.auth-primary:disabled { opacity: .6; cursor: default; }
+.auth-link { cursor: pointer; color: #fff; font-weight: 600; }
+.auth-link:hover { color: #ffa56b; }
+.auth-forgot { cursor: pointer; font-size: 12.5px; color: rgba(255, 255, 255, 0.6); }
+.auth-forgot:hover { color: #fff; }
+`;
+
+function LogoTile() {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/icon.svg" alt="Dandelore" width={42} height={44} />
+    </div>
+  );
+}
+
+function AuthScreen({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, overflowY: "auto" }}>
+      <style>{authCss}</style>
+      <DandelionField />
+      <div style={{ position: "relative", minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 0", pointerEvents: "none" }}>
+        <div style={{ ...card, pointerEvents: "auto" }}>
+          {/* Warm glow behind the button, like light through the card. */}
+          <div
+            aria-hidden
+            style={{
+              position: "absolute", left: "50%", bottom: -60, width: 300, height: 200, transform: "translateX(-50%)",
+              background: "radial-gradient(closest-side, rgba(255, 90, 20, 0.32), transparent)", pointerEvents: "none",
+            }}
+          />
+          <div style={{ position: "relative" }}>{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const title: React.CSSProperties = { fontFamily: SERIF, fontWeight: 600, fontSize: 26, lineHeight: 1.2, color: "#fff", marginBottom: 10 };
+const subtle: React.CSSProperties = { fontSize: 13.5, color: "rgba(255, 255, 255, 0.72)", lineHeight: 1.6, marginBottom: 20 };
+const footer: React.CSSProperties = {
+  margin: "0 -28px", padding: "16px 20px 18px", borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+  display: "flex", justifyContent: "center", alignItems: "baseline", gap: 8, flexWrap: "wrap", fontSize: 13.5,
+};
+const footerMuted: React.CSSProperties = { color: "rgba(255, 255, 255, 0.6)" };
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [stage, setStage] = useState<Stage>("loading");
@@ -127,109 +177,101 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (stage === "unconfigured") {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "#1d1b17", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={card}>
-          <div style={{ fontFamily: "var(--font-spectral), serif", fontWeight: 600, fontSize: 20, color: "#3c3324", marginBottom: 8 }}>
-            Supabase isn&apos;t configured
-          </div>
-          <div style={{ fontSize: 13.5, color: "#6f6552", lineHeight: 1.6 }}>
-            Sign-in needs a Supabase project connected via <code>NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-            <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>.
-          </div>
+      <AuthScreen>
+        <LogoTile />
+        <div style={title}>Supabase isn&apos;t configured</div>
+        <div style={{ ...subtle, marginBottom: 28 }}>
+          Sign-in needs a Supabase project connected via <code>NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
+          <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>.
         </div>
-      </div>
+      </AuthScreen>
     );
   }
 
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "#1d1b17", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={card}>
-        <div style={{ fontFamily: "var(--font-spectral), serif", fontWeight: 600, fontSize: 22, color: "#3c3324", marginBottom: 8 }}>
-          {mode === "signin" && "Sign in"}
-          {mode === "signup" && "Create your account"}
-          {mode === "forgot" && "Reset your password"}
-        </div>
-        {mode === "forgot" && (
-          <div style={{ fontSize: 13.5, color: "#6f6552", lineHeight: 1.6, marginBottom: 16 }}>
-            Enter your email and we&apos;ll send you a link to set a new password.
-          </div>
-        )}
+  const switchMode = (m: Mode) => {
+    setMode(m);
+    setError(null);
+    setNotice(null);
+  };
 
+  return (
+    <AuthScreen>
+      <LogoTile />
+      <div style={{ ...title, marginBottom: mode === "forgot" ? 10 : 24 }}>
+        {mode === "signin" && "Welcome back"}
+        {mode === "signup" && "Welcome to Dandelore"}
+        {mode === "forgot" && "Reset your password"}
+      </div>
+      {mode === "forgot" && (
+        <div style={subtle}>Enter your email and we&apos;ll send you a link to set a new password.</div>
+      )}
+
+      <input
+        className="auth-input"
+        type="email"
+        autoFocus
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+      />
+      {mode !== "forgot" && (
         <input
-          type="email"
-          autoFocus
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-          style={input}
+          className="auth-input"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+          placeholder="Password"
         />
-        {mode !== "forgot" && (
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-            placeholder="Password"
-            style={input}
-          />
+      )}
+      {mode === "signin" && (
+        <div style={{ textAlign: "right", margin: "-4px 2px 10px" }}>
+          <span className="auth-forgot" onClick={() => switchMode("forgot")}>
+            Forgot password?
+          </span>
+        </div>
+      )}
+      {mode === "signup" && (
+        <input
+          className="auth-input"
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+          placeholder="Confirm password"
+        />
+      )}
+
+      {error && <div style={{ fontSize: 13, color: "#ffab94", margin: "2px 0 10px", textAlign: "left" }}>{error}</div>}
+      {notice && <div style={{ fontSize: 13, color: "#c6dd9c", margin: "2px 0 10px", textAlign: "left" }}>{notice}</div>}
+
+      <button type="button" className="auth-primary" disabled={busy} onClick={handleSubmit}>
+        {busy ? "Please wait…" : mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"}
+      </button>
+
+      <div style={footer}>
+        {mode === "signin" && (
+          <>
+            <span style={footerMuted}>Don&apos;t have an account?</span>
+            <span className="auth-link" onClick={() => switchMode("signup")}>
+              Sign up
+            </span>
+          </>
         )}
         {mode === "signup" && (
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-            placeholder="Confirm password"
-            style={input}
-          />
-        )}
-
-        {error && <div style={{ fontSize: 12.5, color: "#c15a3d", marginBottom: 10 }}>{error}</div>}
-        {notice && <div style={{ fontSize: 12.5, color: "#7d8a5f", marginBottom: 10 }}>{notice}</div>}
-
-        <div onClick={busy ? undefined : handleSubmit} style={{ ...primaryBtn, opacity: busy ? 0.6 : 1, cursor: busy ? "default" : "pointer" }}>
-          {busy ? "Please wait…" : mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"}
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16, fontSize: 12.5, color: "#8a7f6a" }}>
-          {mode === "signin" && (
-            <>
-              <span
-                onClick={() => {
-                  setMode("signup");
-                  setError(null);
-                  setNotice(null);
-                }}
-                style={{ cursor: "pointer" }}
-              >
-                Create an account
-              </span>
-              <span
-                onClick={() => {
-                  setMode("forgot");
-                  setError(null);
-                  setNotice(null);
-                }}
-                style={{ cursor: "pointer" }}
-              >
-                Forgot password?
-              </span>
-            </>
-          )}
-          {mode !== "signin" && (
-            <span
-              onClick={() => {
-                setMode("signin");
-                setError(null);
-                setNotice(null);
-              }}
-              style={{ cursor: "pointer" }}
-            >
-              ← Back to sign in
+          <>
+            <span style={footerMuted}>Already have an account?</span>
+            <span className="auth-link" onClick={() => switchMode("signin")}>
+              Log In
             </span>
-          )}
-        </div>
+          </>
+        )}
+        {mode === "forgot" && (
+          <span className="auth-link" onClick={() => switchMode("signin")}>
+            ← Back to sign in
+          </span>
+        )}
       </div>
-    </div>
+    </AuthScreen>
   );
 }
