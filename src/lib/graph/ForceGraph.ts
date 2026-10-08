@@ -49,14 +49,11 @@ export class ForceGraph {
   deps: ForceGraphDeps;
   destroyed = false;
 
-  // Cooling, as in d3-force (what Obsidian's graph uses). The layout's own
-  // forces are unchanged, but they're scaled by alpha, which decays to
-  // nothing over ~300 ticks so the graph settles and stops. Without it the
-  // forces never cooled and the layout jumped around forever.
-  alpha = 1;
-  alphaTarget = 0;
-  alphaMin = 0.005;
-  alphaDecay = 1 - Math.pow(0.005, 1 / 300);
+  // The layout's forces are the original ones at full strength (so the
+  // graph keeps its usual shape); the simulation just stops once nothing is
+  // moving any more, and wakes up again on drag or when links change.
+  settled = false;
+  stillTicks = 0;
   structureSig = "";
 
   constructor(deps: ForceGraphDeps) {
@@ -129,7 +126,7 @@ export class ForceGraph {
       if (n) {
         this.dragNode = n;
         n.fx = true;
-        this.reheat(0.3);
+        this.reheat();
       } else {
         this.panning = true;
         canvas.style.cursor = "grabbing";
@@ -166,7 +163,6 @@ export class ForceGraph {
         }
         this.dragNode.fx = false;
         this.dragNode = null;
-        this.alphaTarget = 0;
       }
       this.panning = false;
       canvas.style.cursor = "grab";
@@ -206,7 +202,7 @@ export class ForceGraph {
         if (n) {
           this.dragNode = n;
           n.fx = true;
-          this.reheat(0.3);
+          this.reheat();
         } else {
           this.panning = true;
         }
@@ -279,13 +275,22 @@ export class ForceGraph {
     };
     this.cleanup = cleanupFns;
 
-    // Do the wild first part of the layout off-screen, so opening the graph
-    // shows it easing into place rather than exploding from a pile.
-    for (let i = 0; i < 120 && this.physicsStep(); i++);
+    // Do the wild first part of the layout off-screen (up to ~100ms), so
+    // opening the graph shows it easing into place, not exploding from a pile.
+    const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+    const warmUntil = now() + 100;
+    while (now() < warmUntil && this.physicsStep());
 
     const step = () => {
       if (this.destroyed) return;
-      this.physicsStep();
+      // Several ticks per frame (within a ~6ms budget) so the rest of the
+      // layout settles in about a second; same forces, so same final shape.
+      // One tick per frame while dragging keeps the drag feeling natural.
+      if (this.dragNode) this.physicsStep();
+      else {
+        const until = now() + 6;
+        while (this.physicsStep() && now() < until);
+      }
       this.draw();
       this.raf = requestAnimationFrame(step);
     };
@@ -294,9 +299,9 @@ export class ForceGraph {
 
   cleanup: (() => void) | null = null;
 
-  reheat(target = 0.3) {
-    this.alphaTarget = target;
-    this.alpha = Math.max(this.alpha, target);
+  reheat() {
+    this.settled = false;
+    this.stillTicks = 0;
   }
 
   buildData() {
@@ -375,17 +380,14 @@ export class ForceGraph {
     // only wake the layout up when nodes or links actually changed.
     const sig = nodes.map((n) => n.id).join("|") + "#" + links.map(([a, b]) => a + "-" + b).join(",");
     if (sig !== this.structureSig) {
-      if (this.structureSig) this.reheat(0.3);
-      this.alphaTarget = this.dragNode ? 0.3 : 0;
+      if (this.structureSig) this.reheat();
       this.structureSig = sig;
     }
   }
 
   /** One simulation tick. Returns false once the layout has settled. */
   physicsStep(): boolean {
-    if (this.alpha < this.alphaMin && this.alphaTarget === 0) return false;
-    this.alpha += (this.alphaTarget - this.alpha) * this.alphaDecay;
-    const alpha = this.alpha;
+    if (this.settled && !this.dragNode) return false;
     const N = this.nodes;
     for (let a = 0; a < N.length; a++) {
       for (let b = a + 1; b < N.length; b++) {
@@ -403,7 +405,7 @@ export class ForceGraph {
         // closer than 20px as 20px apart.
         d2 = Math.max(d2, 400);
         const d = Math.sqrt(dx * dx + dy * dy) || 1;
-        const rep = (4200 / d2) * alpha;
+        const rep = 4200 / d2;
         const fx = (dx / d) * rep,
           fy = (dy / d) * rep;
         A.vx += fx;
@@ -418,7 +420,7 @@ export class ForceGraph {
       const dx = B.x - A.x,
         dy = B.y - A.y;
       const d = Math.hypot(dx, dy) || 1;
-      const k = (d - 160) * 0.02 * alpha;
+      const k = (d - 160) * 0.02;
       const fx = (dx / d) * k,
         fy = (dy / d) * k;
       A.vx += fx;
@@ -427,9 +429,10 @@ export class ForceGraph {
       B.vy -= fy;
     });
     const maxSpeed = 40;
+    let fastest = 0;
     N.forEach((n) => {
-      n.vx += -n.x * 0.006 * alpha;
-      n.vy += -n.y * 0.006 * alpha;
+      n.vx += -n.x * 0.006;
+      n.vy += -n.y * 0.006;
       if (!n.fx) {
         n.vx *= 0.82;
         n.vy *= 0.82;
@@ -440,8 +443,15 @@ export class ForceGraph {
         }
         n.x += n.vx;
         n.y += n.vy;
+        fastest = Math.max(fastest, Math.abs(n.vx), Math.abs(n.vy));
       }
     });
+    // Stop once every node has been (practically) still for half a second.
+    if (fastest < 0.05) {
+      if (++this.stillTicks >= 30 && !this.dragNode) this.settled = true;
+    } else {
+      this.stillTicks = 0;
+    }
     return true;
   }
 
