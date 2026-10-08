@@ -49,18 +49,15 @@ export class ForceGraph {
   deps: ForceGraphDeps;
   destroyed = false;
 
-  // Simulation "temperature", modelled on d3-force (which Obsidian's graph
-  // uses): forces are scaled by alpha, alpha decays towards alphaTarget,
-  // and once it drops below alphaMin the layout stops moving entirely.
-  // Before this the forces never cooled, so the layout oscillated forever.
+  // Cooling, as in d3-force (what Obsidian's graph uses). The layout's own
+  // forces are unchanged, but they're scaled by alpha, which decays to
+  // nothing over ~300 ticks so the graph settles and stops. Without it the
+  // forces never cooled and the layout jumped around forever.
   alpha = 1;
   alphaTarget = 0;
-  alphaMin = 0.001;
-  alphaDecay = 1 - Math.pow(0.001, 1 / 300); // ~300 ticks (~5s) from 1 to alphaMin
-  velocityDecay = 0.4;
-  linkCount: number[] = [];
+  alphaMin = 0.005;
+  alphaDecay = 1 - Math.pow(0.005, 1 / 300);
   structureSig = "";
-  fitted = false;
 
   constructor(deps: ForceGraphDeps) {
     this.deps = deps;
@@ -282,11 +279,9 @@ export class ForceGraph {
     };
     this.cleanup = cleanupFns;
 
-    // Run most of the layout off-screen and zoom to fit, so opening the
-    // graph shows a nearly settled picture that eases into place instead of
-    // nodes exploding outwards from a pile.
-    for (let i = 0; i < 150 && this.physicsStep(); i++);
-    this.fitToView();
+    // Do the wild first part of the layout off-screen, so opening the graph
+    // shows it easing into place rather than exploding from a pile.
+    for (let i = 0; i < 120 && this.physicsStep(); i++);
 
     const step = () => {
       if (this.destroyed) return;
@@ -297,46 +292,17 @@ export class ForceGraph {
     this.raf = requestAnimationFrame(step);
   }
 
+  cleanup: (() => void) | null = null;
+
   reheat(target = 0.3) {
     this.alphaTarget = target;
     this.alpha = Math.max(this.alpha, target);
   }
 
-  fitToView() {
-    if (!this.w || !this.h || !this.nodes.length) return;
-    let minx = Infinity,
-      maxx = -Infinity,
-      miny = Infinity,
-      maxy = -Infinity;
-    this.nodes.forEach((n) => {
-      minx = Math.min(minx, n.x);
-      maxx = Math.max(maxx, n.x);
-      miny = Math.min(miny, n.y);
-      maxy = Math.max(maxy, n.y);
-    });
-    const pad = 60;
-    const bw = Math.max(1, maxx - minx),
-      bh = Math.max(1, maxy - miny);
-    const scale = Math.max(0.25, Math.min(1.5, Math.min((this.w - pad * 2) / bw, (this.h - pad * 2) / bh) * 0.85));
-    this.scale = scale;
-    this.tx = this.w / 2 - ((minx + maxx) / 2) * scale;
-    this.ty = this.h / 2 - ((miny + maxy) / 2) * scale;
-    this.fitted = true;
-  }
-
-  cleanup: (() => void) | null = null;
-
   buildData() {
     const notes = this.deps.getNotes();
     const categories = this.deps.getCategories();
-    // New nodes start on a phyllotaxis spiral (d3-force's default), which is
-    // evenly spread — random starts could land two nodes almost on top of
-    // each other and fling them apart.
-    const spiral = (i: number) => {
-      const r = 14 * Math.sqrt(0.5 + i),
-        a = i * Math.PI * (3 - Math.sqrt(5));
-      return { x: r * Math.cos(a), y: r * Math.sin(a), vx: 0, vy: 0 };
-    };
+    const rand = () => (Math.random() - 0.5) * 260;
     // Reuse each node's existing position/velocity instead of re-randomizing
     // it — buildData() re-runs on every notes-array change (including
     // editing a totally unrelated note's content, e.g. in the other split
@@ -346,13 +312,7 @@ export class ForceGraph {
     // random spot.
     const prev: Record<string, { x: number; y: number; vx: number; vy: number }> = {};
     this.nodes.forEach((n) => (prev[n.id] = { x: n.x, y: n.y, vx: n.vx, vy: n.vy }));
-    let spiralI = 0;
-    const fresh = new Set<string>();
-    const posFor = (id: string) => {
-      if (prev[id]) return prev[id];
-      fresh.add(id);
-      return spiral(spiralI++ + Object.keys(prev).length);
-    };
+    const posFor = (id: string) => prev[id] || { x: rand(), y: rand(), vx: 0, vy: 0 };
     const idOf: Record<string, number> = {};
     const nodes: GraphNode[] = [];
     notes.forEach((n) => {
@@ -366,15 +326,6 @@ export class ForceGraph {
     });
 
     const links: [number, number][] = [];
-    const seenLink = new Set<string>();
-    // A→B and B→A (or a note linking the same page twice) are one edge, not
-    // two springs pulling twice as hard.
-    const addLink = (a: number, b: number) => {
-      const key = a < b ? a + "," + b : b + "," + a;
-      if (seenLink.has(key)) return;
-      seenLink.add(key);
-      links.push([a, b]);
-    };
     const nb: Record<string, Set<string>> = {};
     nodes.forEach((n) => (nb[n.id] = new Set()));
     // Wikilinks to titles with no matching note still show up here, faded,
@@ -385,7 +336,7 @@ export class ForceGraph {
         const tg = this.deps.getByTitle(t);
         if (tg) {
           if (tg.id === n.id) return;
-          addLink(idOf[n.id], idOf[tg.id]);
+          links.push([idOf[n.id], idOf[tg.id]]);
           nb[n.id].add(tg.id);
           nb[tg.id].add(n.id);
           return;
@@ -400,14 +351,14 @@ export class ForceGraph {
           nodes.push({ id: pid, title: t.trim(), empty: false, kind: "phantom", ...posFor(pid) });
           nb[pid] = new Set();
         }
-        addLink(idOf[n.id], idOf[pid]);
+        links.push([idOf[n.id], idOf[pid]]);
         nb[n.id].add(pid);
         nb[pid].add(n.id);
       });
       if (n.category) {
         const cid = catNodeId(n.category);
         if (idOf[cid] !== undefined) {
-          addLink(idOf[n.id], idOf[cid]);
+          links.push([idOf[n.id], idOf[cid]]);
           nb[n.id].add(cid);
           nb[cid].add(n.id);
         }
@@ -419,28 +370,9 @@ export class ForceGraph {
     const deg: Record<string, number> = {};
     nodes.forEach((n) => (deg[n.id] = nb[n.id].size));
     this.deg = deg;
-    const count = nodes.map(() => 0);
-    links.forEach(([a, b]) => {
-      count[a]++;
-      count[b]++;
-    });
-    this.linkCount = count;
 
-    // Drop genuinely new nodes next to something they link to (when that
-    // already has a position) instead of out on the spiral's edge.
-    if (Object.keys(prev).length) {
-      nodes.forEach((n) => {
-        if (!fresh.has(n.id)) return;
-        const anchor = [...nb[n.id]].map((id) => nodes[idOf[id]]).find((m) => m && !fresh.has(m.id));
-        if (anchor) {
-          n.x = anchor.x + (Math.random() - 0.5) * 40;
-          n.y = anchor.y + (Math.random() - 0.5) * 40;
-        }
-      });
-    }
-
-    // buildData() re-runs on every notes change, including plain typing.
-    // Only wake the layout up when nodes or links actually changed.
+    // buildData() re-runs on every notes change, including plain typing;
+    // only wake the layout up when nodes or links actually changed.
     const sig = nodes.map((n) => n.id).join("|") + "#" + links.map(([a, b]) => a + "-" + b).join(",");
     if (sig !== this.structureSig) {
       if (this.structureSig) this.reheat(0.3);
@@ -455,71 +387,61 @@ export class ForceGraph {
     this.alpha += (this.alphaTarget - this.alpha) * this.alphaDecay;
     const alpha = this.alpha;
     const N = this.nodes;
-
-    // Repulsion between every pair (many-body), with a minimum distance so
-    // two nodes that start close together can't fling each other away.
-    const strength = -260;
-    const distMin2 = 25 * 25;
     for (let a = 0; a < N.length; a++) {
-      const A = N[a];
       for (let b = a + 1; b < N.length; b++) {
-        const B = N[b];
-        let dx = B.x - A.x,
-          dy = B.y - A.y;
-        if (dx === 0 && dy === 0) {
-          dx = (Math.random() - 0.5) * 1e-3;
-          dy = (Math.random() - 0.5) * 1e-3;
+        const A = N[a],
+          B = N[b];
+        let dx = A.x - B.x,
+          dy = A.y - B.y;
+        let d2 = dx * dx + dy * dy;
+        if (d2 < 0.01) {
+          dx = Math.random();
+          dy = Math.random();
         }
-        let l2 = dx * dx + dy * dy;
-        if (l2 < distMin2) l2 = Math.sqrt(distMin2 * l2);
-        const w = (strength * alpha) / l2;
-        A.vx += dx * w;
-        A.vy += dy * w;
-        B.vx -= dx * w;
-        B.vy -= dy * w;
+        // Two nodes that start nearly on top of each other used to get an
+        // enormous push and fling each other off-screen; treat anything
+        // closer than 20px as 20px apart.
+        d2 = Math.max(d2, 400);
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const rep = (4200 / d2) * alpha;
+        const fx = (dx / d) * rep,
+          fy = (dy / d) * rep;
+        A.vx += fx;
+        A.vy += fy;
+        B.vx -= fx;
+        B.vy -= fy;
       }
     }
-
-    // Springs. Each link's strength is 1/min(degree) and the correction is
-    // split by degree, so hubs (a category with 20 notes) barely move while
-    // their leaves do — the d3-force defaults that keep hubs from oscillating.
-    const distance = 70;
-    const count = this.linkCount;
-    for (const [s, t] of this.links) {
-      const S = N[s],
-        T = N[t];
-      let dx = T.x + T.vx - S.x - S.vx,
-        dy = T.y + T.vy - S.y - S.vy;
-      if (dx === 0 && dy === 0) {
-        dx = (Math.random() - 0.5) * 1e-3;
-        dy = (Math.random() - 0.5) * 1e-3;
-      }
-      const l = Math.sqrt(dx * dx + dy * dy);
-      const k = ((l - distance) / l) * alpha * (1 / Math.min(count[s] || 1, count[t] || 1));
-      const bias = (count[s] || 1) / ((count[s] || 1) + (count[t] || 1));
-      dx *= k;
-      dy *= k;
-      T.vx -= dx * bias;
-      T.vy -= dy * bias;
-      S.vx += dx * (1 - bias);
-      S.vy += dy * (1 - bias);
-    }
-
-    // Gentle pull towards the centre so disconnected pieces stay in view.
-    const centre = 0.06 * alpha;
-    for (const n of N) {
-      n.vx -= n.x * centre;
-      n.vy -= n.y * centre;
-      if (n.fx) {
-        n.vx = 0;
-        n.vy = 0;
-      } else {
-        n.vx *= 1 - this.velocityDecay;
-        n.vy *= 1 - this.velocityDecay;
+    this.links.forEach(([a, b]) => {
+      const A = N[a],
+        B = N[b];
+      const dx = B.x - A.x,
+        dy = B.y - A.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const k = (d - 160) * 0.02 * alpha;
+      const fx = (dx / d) * k,
+        fy = (dy / d) * k;
+      A.vx += fx;
+      A.vy += fy;
+      B.vx -= fx;
+      B.vy -= fy;
+    });
+    const maxSpeed = 40;
+    N.forEach((n) => {
+      n.vx += -n.x * 0.006 * alpha;
+      n.vy += -n.y * 0.006 * alpha;
+      if (!n.fx) {
+        n.vx *= 0.82;
+        n.vy *= 0.82;
+        const sp = Math.hypot(n.vx, n.vy);
+        if (sp > maxSpeed) {
+          n.vx *= maxSpeed / sp;
+          n.vy *= maxSpeed / sp;
+        }
         n.x += n.vx;
         n.y += n.vy;
       }
-    }
+    });
     return true;
   }
 
