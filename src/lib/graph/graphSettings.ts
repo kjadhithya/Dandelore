@@ -2,9 +2,10 @@
 import { create } from "zustand";
 
 // Graph view settings, modelled on Obsidian's graph settings panel (same
-// sections, controls, ranges and defaults). Like the app's other display
-// preferences (theme, fonts…) they're kept per device in localStorage, and
-// shared by every open graph view.
+// sections, controls, ranges and defaults), shared by every open graph view.
+// Like the theme and fonts, they (and graph bookmarks) sync across devices
+// through vault_settings (see syncWorker); localStorage is just this
+// device's copy so the graph opens with them before the sync has loaded.
 
 export interface GraphGroup {
   query: string;
@@ -59,9 +60,14 @@ export interface GraphBookmark {
   created: string;
 }
 
-const SETTINGS_KEY = "kv-graph";
+// The device copy is kept per vault (account), so signing into a different
+// account on the same browser never shows — or syncs — the first account's
+// graph settings and bookmarks. Panel open/closed state is just a device UI
+// preference and stays shared.
+let vaultKey = "";
+const settingsKey = () => "kv-graph" + vaultKey;
+const bookmarksKey = () => "kv-graphBookmarks" + vaultKey;
 const COLLAPSED_KEY = "kv-graphCollapsed";
-const BOOKMARKS_KEY = "kv-graphBookmarks";
 
 function load<T>(key: string, fallback: T): T {
   try {
@@ -85,6 +91,8 @@ interface GraphSettingsStore {
   bookmarks: GraphBookmark[];
   hydrated: boolean;
   hydrate: () => void;
+  /** Switch to the signed-in vault's device copy (called by the sync). */
+  setVault: (vaultId: string) => void;
   set: (patch: Partial<GraphSettings>) => void;
   reset: () => void;
   toggleSection: (s: GraphSection) => void;
@@ -94,6 +102,8 @@ interface GraphSettingsStore {
   addBookmark: (title: string) => void;
   removeBookmark: (id: string) => void;
   applyBookmark: (id: string) => void;
+  /** Values that arrived from another device (via the sync). */
+  applyRemote: (remote: { settings?: Partial<GraphSettings> | null; bookmarks?: GraphBookmark[] | null }) => void;
 }
 
 // Obsidian gives each new group a random colour; these are picked to stay
@@ -105,25 +115,32 @@ export const useGraphSettings = create<GraphSettingsStore>((set, get) => ({
   collapsed: { filters: false, groups: false, display: false, forces: false },
   bookmarks: [],
   hydrated: false,
+  setVault: (vaultId) => {
+    const key = ":" + vaultId;
+    if (vaultKey === key && get().hydrated) return;
+    vaultKey = key;
+    set({ hydrated: false, settings: GRAPH_DEFAULTS, bookmarks: [] });
+    get().hydrate();
+  },
   hydrate: () => {
     if (get().hydrated) return;
     set({
-      settings: { ...GRAPH_DEFAULTS, ...load<Partial<GraphSettings>>(SETTINGS_KEY, {}) },
+      settings: { ...GRAPH_DEFAULTS, ...load<Partial<GraphSettings>>(settingsKey(), {}) },
       collapsed: { ...get().collapsed, ...load<Partial<Record<GraphSection, boolean>>>(COLLAPSED_KEY, {}) },
-      bookmarks: load<GraphBookmark[]>(BOOKMARKS_KEY, []),
+      bookmarks: load<GraphBookmark[]>(bookmarksKey(), []),
       hydrated: true,
     });
   },
   set: (patch) => {
     const settings = { ...get().settings, ...patch };
     set({ settings });
-    save(SETTINGS_KEY, settings);
+    save(settingsKey(), settings);
   },
   reset: () => {
     // Obsidian's "Restore default settings" leaves groups alone.
     const settings = { ...GRAPH_DEFAULTS, groups: get().settings.groups };
     set({ settings });
-    save(SETTINGS_KEY, settings);
+    save(settingsKey(), settings);
   },
   toggleSection: (s) => {
     const collapsed = { ...get().collapsed, [s]: !get().collapsed[s] };
@@ -148,12 +165,24 @@ export const useGraphSettings = create<GraphSettingsStore>((set, get) => ({
     };
     const bookmarks = [...get().bookmarks, b];
     set({ bookmarks });
-    save(BOOKMARKS_KEY, bookmarks);
+    save(bookmarksKey(), bookmarks);
   },
   removeBookmark: (id) => {
     const bookmarks = get().bookmarks.filter((b) => b.id !== id);
     set({ bookmarks });
-    save(BOOKMARKS_KEY, bookmarks);
+    save(bookmarksKey(), bookmarks);
+  },
+  applyRemote: ({ settings, bookmarks }) => {
+    get().hydrate();
+    if (settings) {
+      const merged = { ...GRAPH_DEFAULTS, ...settings };
+      set({ settings: merged });
+      save(settingsKey(), merged);
+    }
+    if (bookmarks) {
+      set({ bookmarks });
+      save(bookmarksKey(), bookmarks);
+    }
   },
   applyBookmark: (id) => {
     const b = get().bookmarks.find((x) => x.id === id);

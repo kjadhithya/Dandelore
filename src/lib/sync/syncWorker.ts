@@ -5,6 +5,7 @@ import { localDb } from "@/lib/db/localDb";
 import { listNoteAttachments, downloadAttachment } from "@/lib/supabase/attachments";
 import { normalizeLineEndings } from "@/lib/text";
 import type { Note } from "@/types/vault";
+import { useGraphSettings, GRAPH_DEFAULTS, type GraphSettings, type GraphBookmark } from "@/lib/graph/graphSettings";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 /* Folders/categories are whole-list syncs with no per-row timestamps, which
@@ -349,6 +350,19 @@ interface RemoteSettingsRow {
   title_font: string;
   sort: string;
   pinned_categories: string[];
+  graph_settings?: Partial<GraphSettings> | null;
+  graph_bookmarks?: GraphBookmark[] | null;
+}
+
+/** Set while a settings row from the server is being applied, so the store
+ * subscription doesn't push that same row straight back. */
+let applyingRemoteSettings = false;
+/** A local graph change is waiting to be pushed; until it lands, a pull
+ * mustn't overwrite it with the older server copy. */
+let graphPushPending = false;
+
+function graphIsDefault(g: GraphSettings): boolean {
+  return JSON.stringify(g) === JSON.stringify(GRAPH_DEFAULTS);
 }
 
 /** Appearance prefs used to live in localStorage only, so they never
@@ -367,6 +381,8 @@ function settingsToRow(vaultId: string) {
     title_font: s.titleFont,
     sort: s.sort,
     pinned_categories: s.pinnedCategories,
+    graph_settings: useGraphSettings.getState().settings,
+    graph_bookmarks: useGraphSettings.getState().bookmarks,
   };
 }
 
@@ -384,20 +400,31 @@ function applySettingsRow(row: RemoteSettingsRow) {
   // remote in the case this skips.
   const remotePinned = row.pinned_categories;
   const pinnedCategories = remotePinned && remotePinned.length > 0 ? remotePinned : useVaultStore.getState().pinnedCategories;
-  useVaultStore.setState({
-    themeOverride: row.theme as never,
-    accentOverride: row.accent_color,
-    appFont: row.app_font as never,
-    noteFont: row.note_font as never,
-    titleFont: row.title_font as never,
-    sort: row.sort as never,
-    pinnedCategories,
-  });
+  applyingRemoteSettings = true;
+  try {
+    useVaultStore.setState({
+      themeOverride: row.theme as never,
+      accentOverride: row.accent_color,
+      appFont: row.app_font as never,
+      noteFont: row.note_font as never,
+      titleFont: row.title_font as never,
+      sort: row.sort as never,
+      pinnedCategories,
+    });
+    // Graph settings/bookmarks are NULL until some device first saves them
+    // (and on a server where the columns don't exist yet they're undefined),
+    // so only take them when present — same reasoning as pinned_categories.
+    if (!graphPushPending) useGraphSettings.getState().applyRemote({ settings: row.graph_settings ?? null, bookmarks: row.graph_bookmarks ?? null });
+  } finally {
+    applyingRemoteSettings = false;
+  }
 }
 
 async function pullSettings(vaultId: string): Promise<string> {
   const supabase = getSupabase();
   if (!supabase) return "";
+  // This device's own copy first, so a missing remote value never wipes it.
+  useGraphSettings.getState().setVault(vaultId);
   const { data, error } = await supabase.from("vault_settings").select("*").eq("vault_id", vaultId).maybeSingle();
   if (error) {
     reportSyncError("Loading settings", error.message);
@@ -409,7 +436,9 @@ async function pullSettings(vaultId: string): Promise<string> {
     // needs an explicit push here to actually get corrected — otherwise it
     // stays wrong until the user happens to toggle a pin themselves.
     const localPinned = useVaultStore.getState().pinnedCategories;
-    if (localPinned.length && (!row.pinned_categories || row.pinned_categories.length === 0)) {
+    const graph = useGraphSettings.getState();
+    const graphMissing = (row.graph_settings == null && !graphIsDefault(graph.settings)) || (row.graph_bookmarks == null && graph.bookmarks.length > 0);
+    if ((localPinned.length && (!row.pinned_categories || row.pinned_categories.length === 0)) || graphMissing) {
       await pushSettings(vaultId);
     }
   } else {
@@ -428,7 +457,10 @@ async function pushSettings(vaultId: string) {
   if (!supabase) return;
   const { error } = await supabase.from("vault_settings").upsert(settingsToRow(vaultId));
   if (error) reportSyncError("Saving settings", error.message);
-  else clearSyncError();
+  else {
+    graphPushPending = false;
+    clearSyncError();
+  }
 }
 
 async function replayQueue(vaultId: string) {
@@ -573,14 +605,23 @@ export function startSyncWorker(onReady?: () => void): () => void {
     // rather than a field-by-field diff, so compare a snapshot instead of
     // each field — cheap given how rarely these change, and it naturally
     // ignores fields (like showRight) that aren't part of the synced row.
-    if (prevSettingsSnapshot) {
-      const snap = JSON.stringify(settingsToRow(vaultId));
-      if (snap !== prevSettingsSnapshot) {
-        prevSettingsSnapshot = snap;
-        debouncedPushSettings.run();
-      }
-    }
+    checkSettings();
   });
+  // Graph settings and bookmarks live in their own store but sync in the
+  // same vault_settings row.
+  let prevGraph = useGraphSettings.getState();
+  const unsubscribeGraph = useGraphSettings.subscribe((g) => {
+    if ((g.settings !== prevGraph.settings || g.bookmarks !== prevGraph.bookmarks) && !applyingRemoteSettings && prevSettingsSnapshot) graphPushPending = true;
+    prevGraph = g;
+    checkSettings();
+  });
+  function checkSettings() {
+    if (!prevSettingsSnapshot) return;
+    const snap = JSON.stringify(settingsToRow(vaultId!));
+    if (snap === prevSettingsSnapshot) return;
+    prevSettingsSnapshot = snap;
+    if (!applyingRemoteSettings) debouncedPushSettings.run();
+  }
 
   // Backgrounding the tab (switching apps on mobile, switching tabs, closing)
   // must not silently drop a pending debounced push — flush it immediately.
@@ -668,6 +709,7 @@ export function startSyncWorker(onReady?: () => void): () => void {
     cancelled = true;
     flushPending();
     unsubscribeStore();
+    unsubscribeGraph();
     clearInterval(pollInterval);
     window.removeEventListener("online", onOnline);
     document.removeEventListener("visibilitychange", onVisibilityChange);
