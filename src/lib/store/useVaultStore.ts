@@ -124,6 +124,8 @@ export interface VaultStore extends VaultState {
 
   // split
   splitOpen: (dir: "right" | "down") => void;
+  /** Open a non-note view (e.g. the graph) in a new split pane. */
+  splitOpenView: (dir: "right" | "down", view: View) => void;
   splitSelect: (i: number) => void;
   splitCloseTab: (i: number) => void;
   splitCloseAll: () => void;
@@ -567,6 +569,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     if (!id) return;
     set({ split: { dir, tabs: [mkNoteTab(id)], active: 0 }, noteMenuOpen: false, noteMenuMove: false, lastPane: "split" });
   },
+  splitOpenView: (dir, view) => set({ split: { dir, tabs: [mkTab(view)], active: 0 }, noteMenuOpen: false, noteMenuMove: false, lastPane: "split" }),
   splitSelect: (i) => set((s) => (s.split ? { split: { ...s.split, active: i }, lastPane: "split" } : {})),
   splitCloseTab: (i) =>
     set((s) => {

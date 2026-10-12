@@ -1,16 +1,24 @@
 import { mixHex } from "@/lib/theme/color";
 import type { Note } from "@/types/vault";
+import { GRAPH_DEFAULTS, type GraphSettings } from "@/lib/graph/graphSettings";
+import { compileQuery, type QueryTarget } from "@/lib/graph/graphQuery";
 
 interface GraphNode {
   id: string;
   title: string;
   empty: boolean;
-  kind: "note" | "category" | "phantom";
+  kind: "note" | "category" | "phantom" | "tag" | "attachment";
   x: number;
   y: number;
   vx: number;
   vy: number;
   fx?: boolean;
+  /** Fill colour from the first matching group, if any. */
+  color?: string;
+  /** For attachment nodes: a note the file is attached to. */
+  noteId?: string;
+  /** Not yet shown by a running timelapse. */
+  hidden?: boolean;
 }
 
 export interface ForceGraphDeps {
@@ -23,7 +31,17 @@ export interface ForceGraphDeps {
   onNodeClick: (id: string) => void;
   onCategoryClick: (name: string) => void;
   onPhantomClick: (title: string) => void;
+  onTagClick?: (tag: string) => void;
+  getTags?: (n: Note) => string[];
+  getSettings?: () => GraphSettings;
 }
+
+// The force sliders are scaled so Obsidian's defaults (0.52 / 10 / 1 / 250)
+// give exactly this graph's original forces.
+const BASE_REPEL = 4200;
+const BASE_SPRING = 0.02;
+const BASE_LINK_LEN = 160;
+const BASE_CENTER = 0.006;
 
 export class ForceGraph {
   host: HTMLDivElement | null = null;
@@ -70,10 +88,15 @@ export class ForceGraph {
   // sqrt curve so it takes far more links to visibly grow, and the ceiling
   // itself is lower — a handful of connections shouldn't already look big.
   radiusOf(n: GraphNode): number {
-    if (n.kind === "category") return 7;
-    if (n.kind === "phantom") return 5;
+    const k = this.settings().nodeSize;
+    if (n.kind === "category") return 7 * k;
+    if (n.kind === "phantom" || n.kind === "attachment") return 5 * k;
     const d = Math.min(this.deg[n.id] || 0, 24);
-    return 5 + Math.sqrt(d) * 1.15;
+    return (5 + Math.sqrt(d) * 1.15) * k;
+  }
+
+  settings(): GraphSettings {
+    return this.deps.getSettings ? this.deps.getSettings() : GRAPH_DEFAULTS;
   }
 
   mount(host: HTMLDivElement) {
@@ -115,6 +138,7 @@ export class ForceGraph {
       let best: GraphNode | null = null;
       let bd = 1e9;
       this.nodes.forEach((n) => {
+        if (n.hidden) return;
         const r = this.radiusOf(n);
         const d = Math.hypot(n.x - w.x, n.y - w.y);
         if (d < r + 5 && d < bd) {
@@ -165,7 +189,10 @@ export class ForceGraph {
           const n = this.dragNode;
           if (n.kind === "category") this.deps.onCategoryClick(n.title);
           else if (n.kind === "phantom") this.deps.onPhantomClick(n.title);
-          else this.deps.onNodeClick(n.id);
+          else if (n.kind === "tag") this.deps.onTagClick?.(n.title);
+          else if (n.kind === "attachment") {
+            if (n.noteId) this.deps.onNodeClick(n.noteId);
+          } else this.deps.onNodeClick(n.id);
         }
         this.dragNode.fx = false;
         this.dragNode = null;
@@ -283,6 +310,7 @@ export class ForceGraph {
 
     const step = () => {
       if (this.destroyed) return;
+      this.timelapseStep();
       this.physicsStep();
       this.draw();
       this.raf = requestAnimationFrame(step);
@@ -301,6 +329,8 @@ export class ForceGraph {
   buildData() {
     const notes = this.deps.getNotes();
     const categories = this.deps.getCategories();
+    const cfg = this.settings();
+    const tagsOf = this.deps.getTags || ((n: Note) => n.tags || []);
     const rand = () => (Math.random() - 0.5) * 260;
     // Reuse each node's existing position/velocity instead of re-randomizing
     // it — buildData() re-runs on every notes-array change (including
@@ -309,8 +339,8 @@ export class ForceGraph {
     // jump/reshuffle continuously while someone was just typing elsewhere.
     // Only a node that's genuinely new (never existed before) gets a fresh
     // random spot.
-    const prev: Record<string, { x: number; y: number; vx: number; vy: number }> = {};
-    this.nodes.forEach((n) => (prev[n.id] = { x: n.x, y: n.y, vx: n.vx, vy: n.vy }));
+    const prev: Record<string, { x: number; y: number; vx: number; vy: number; hidden?: boolean }> = {};
+    this.nodes.forEach((n) => (prev[n.id] = { x: n.x, y: n.y, vx: n.vx, vy: n.vy, hidden: n.hidden }));
     // On first open, seed nodes on a tight sunflower spiral around the centre
     // (like Obsidian/d3) so the graph blooms outward smoothly instead of
     // starting from a random pile that flings itself apart.
@@ -323,76 +353,168 @@ export class ForceGraph {
         a = seeded++ * Math.PI * (3 - Math.sqrt(5));
       return { x: r * Math.cos(a), y: r * Math.sin(a), vx: 0, vy: 0 };
     };
+
+    // "Search files" narrows the graph to matching notes (plus the tags,
+    // attachments and categories they connect to), like Obsidian's filter.
+    const target = (n: Note): QueryTarget => ({ title: n.title, content: n.content, folder: n.folder, category: n.category, tags: tagsOf(n) });
+    const search = compileQuery(cfg.search);
+    const shown = search ? notes.filter((n) => search(target(n))) : notes;
+    const groupMatchers = cfg.groups.map((g) => ({ color: g.color, match: compileQuery(g.query) })).filter((g) => g.match);
+    const groupColor = (x: QueryTarget) => groupMatchers.find((g) => g.match!(x))?.color;
+
     const idOf: Record<string, number> = {};
     const nodes: GraphNode[] = [];
-    notes.forEach((n) => {
-      idOf[n.id] = nodes.length;
-      nodes.push({ id: n.id, title: n.title, empty: !n.content || !n.content.trim(), kind: "note", ...posFor(n.id) });
-    });
-    const catNodeId = (name: string) => "cat:" + name;
-    categories.forEach((c) => {
-      idOf[catNodeId(c)] = nodes.length;
-      nodes.push({ id: catNodeId(c), title: c, empty: false, kind: "category", ...posFor(catNodeId(c)) });
-    });
-
     const links: [number, number][] = [];
     const nb: Record<string, Set<string>> = {};
-    nodes.forEach((n) => (nb[n.id] = new Set()));
-    // Wikilinks to titles with no matching note still show up here, faded,
-    // so the graph reflects pages you've referenced but haven't created yet.
-    const phantomIdOf: Record<string, string> = {};
-    notes.forEach((n) => {
+    const addNode = (n: Omit<GraphNode, "x" | "y" | "vx" | "vy">) => {
+      if (idOf[n.id] !== undefined) return;
+      idOf[n.id] = nodes.length;
+      nodes.push({ ...n, ...posFor(n.id) });
+      nb[n.id] = new Set();
+    };
+    const addLink = (from: string, to: string) => {
+      if (from === to || nb[from].has(to)) return;
+      links.push([idOf[from], idOf[to]]);
+      nb[from].add(to);
+      nb[to].add(from);
+    };
+
+    shown.forEach((n) => addNode({ id: n.id, title: n.title, empty: !n.content || !n.content.trim(), kind: "note", color: groupColor(target(n)) }));
+    const catNodeId = (name: string) => "cat:" + name;
+    // Categories are always part of Dandelore's graph; when searching, only
+    // the ones the matching notes belong to are kept.
+    const catSet = new Set(categories);
+    const usedCats = search ? new Set(shown.map((n) => n.category).filter((c) => c && catSet.has(c))) : catSet;
+    categories.forEach((c) => {
+      if (usedCats.has(c)) addNode({ id: catNodeId(c), title: c, empty: false, kind: "category" });
+    });
+
+    shown.forEach((n) => {
       this.deps.getLinksOf(n).forEach((t) => {
         const tg = this.deps.getByTitle(t);
         if (tg) {
-          if (tg.id === n.id) return;
-          links.push([idOf[n.id], idOf[tg.id]]);
-          nb[n.id].add(tg.id);
-          nb[tg.id].add(n.id);
+          if (idOf[tg.id] !== undefined) addLink(n.id, tg.id);
           return;
         }
+        // Wikilinks to titles with no matching note show up faded, so the
+        // graph reflects pages you've referenced but haven't created yet —
+        // unless "Existing files only" is on.
+        if (cfg.existingOnly) return;
         const key = t.trim().toLowerCase();
         if (!key) return;
-        let pid = phantomIdOf[key];
-        if (!pid) {
-          pid = "phantom:" + key;
-          phantomIdOf[key] = pid;
-          idOf[pid] = nodes.length;
-          nodes.push({ id: pid, title: t.trim(), empty: false, kind: "phantom", ...posFor(pid) });
-          nb[pid] = new Set();
-        }
-        links.push([idOf[n.id], idOf[pid]]);
-        nb[n.id].add(pid);
-        nb[pid].add(n.id);
+        const pid = "phantom:" + key;
+        addNode({ id: pid, title: t.trim(), empty: false, kind: "phantom", color: groupColor({ title: t.trim(), content: "", folder: "", category: "", tags: [] }) });
+        addLink(n.id, pid);
       });
-      if (n.category) {
-        const cid = catNodeId(n.category);
-        if (idOf[cid] !== undefined) {
-          links.push([idOf[n.id], idOf[cid]]);
-          nb[n.id].add(cid);
-          nb[cid].add(n.id);
-        }
+      if (n.category && idOf[catNodeId(n.category)] !== undefined) addLink(n.id, catNodeId(n.category));
+      if (cfg.showTags) {
+        tagsOf(n).forEach((tag) => {
+          const tid = "tag:" + tag.toLowerCase();
+          addNode({ id: tid, title: "#" + tag, empty: false, kind: "tag", color: groupColor({ title: "#" + tag, content: "", folder: "", category: "", tags: [tag] }) });
+          addLink(n.id, tid);
+        });
+      }
+      if (cfg.showAttachments) {
+        Object.keys(n.attachments || {}).forEach((fname) => {
+          const aid = "att:" + fname.toLowerCase();
+          addNode({ id: aid, title: fname, empty: false, kind: "attachment", noteId: n.id, color: groupColor({ title: fname, content: "", folder: "", category: "", tags: [] }) });
+          addLink(n.id, aid);
+        });
       }
     });
-    this.nodes = nodes;
-    this.links = links;
+
+    // "Orphans" off hides anything with no connections at all.
+    let finalNodes = nodes;
+    let finalLinks = links;
+    if (!cfg.showOrphans) {
+      finalNodes = nodes.filter((n) => nb[n.id].size > 0);
+      const newIdx: Record<string, number> = {};
+      finalNodes.forEach((n, i) => (newIdx[n.id] = i));
+      finalLinks = links.map(([a, b]) => [newIdx[nodes[a].id], newIdx[nodes[b].id]] as [number, number]);
+    }
+
+    this.nodes = finalNodes;
+    this.links = finalLinks;
     this.nb = nb;
     const deg: Record<string, number> = {};
-    nodes.forEach((n) => (deg[n.id] = nb[n.id].size));
+    finalNodes.forEach((n) => (deg[n.id] = nb[n.id].size));
     this.deg = deg;
 
     // buildData() re-runs on every notes change, including plain typing;
     // only wake the layout up when nodes or links actually changed.
-    const sig = nodes.map((n) => n.id).join("|") + "#" + links.map(([a, b]) => a + "-" + b).join(",");
+    const sig = finalNodes.map((n) => n.id).join("|") + "#" + finalLinks.map(([a, b]) => a + "-" + b).join(",");
     if (sig !== this.structureSig) {
       this.reheat();
       this.structureSig = sig;
     }
   }
 
+  // ---------- timelapse ----------
+  // Like Obsidian's "Start timelapse animation": every node disappears, then
+  // notes reappear one by one in the order they were created (their date),
+  // each with its tags/attachments/categories, and the layout grows as they
+  // arrive.
+  timelapse: { order: string[]; shown: number; start: number; duration: number } | null = null;
+
+  startTimelapse(dateOf: (id: string) => string) {
+    const N = this.nodes;
+    if (!N.length) return;
+    const notes = N.filter((n) => n.kind === "note").sort((a, b) => (dateOf(a.id) || "").localeCompare(dateOf(b.id) || "") || a.title.localeCompare(b.title));
+    // Each non-note node appears together with the first note it's linked to.
+    const order: string[] = [];
+    const placed = new Set<string>();
+    notes.forEach((n) => {
+      order.push(n.id);
+      placed.add(n.id);
+      this.nb[n.id].forEach((m) => {
+        const mn = N.find((x) => x.id === m);
+        if (mn && mn.kind !== "note" && !placed.has(m)) {
+          order.push(m);
+          placed.add(m);
+        }
+      });
+    });
+    N.forEach((n) => {
+      if (!placed.has(n.id)) order.push(n.id);
+    });
+    N.forEach((n) => {
+      n.hidden = true;
+      n.vx = n.vy = 0;
+    });
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    this.timelapse = { order, shown: 0, start: now, duration: Math.min(12000, Math.max(2500, notes.length * 55)) };
+    this.reheat();
+  }
+
+  timelapseStep() {
+    const tl = this.timelapse;
+    if (!tl) return;
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const want = Math.min(tl.order.length, Math.ceil(((now - tl.start) / tl.duration) * tl.order.length));
+    const byId = new Map(this.nodes.map((n) => [n.id, n]));
+    while (tl.shown < want) {
+      const n = byId.get(tl.order[tl.shown++]);
+      if (!n) continue;
+      // Pop in next to an already-visible neighbour, or near the centre.
+      const anchor = [...(this.nb[n.id] || [])].map((id) => byId.get(id)).find((m) => m && !m.hidden);
+      const jitter = () => (Math.random() - 0.5) * 30;
+      n.x = (anchor ? anchor.x : 0) + jitter();
+      n.y = (anchor ? anchor.y : 0) + jitter();
+      n.vx = n.vy = 0;
+      n.hidden = false;
+      this.reheat();
+    }
+    if (tl.shown >= tl.order.length) this.timelapse = null;
+  }
+
   physicsStep() {
     if (this.settled && !this.dragNode) return;
-    const N = this.nodes;
+    const cfg = this.settings();
+    const repel = BASE_REPEL * (cfg.repelForce / GRAPH_DEFAULTS.repelForce);
+    const spring = BASE_SPRING * (cfg.linkForce / GRAPH_DEFAULTS.linkForce);
+    const linkLen = BASE_LINK_LEN * (cfg.linkDistance / GRAPH_DEFAULTS.linkDistance);
+    const center = BASE_CENTER * (cfg.centerForce / GRAPH_DEFAULTS.centerForce);
+    const N = this.nodes.filter((n) => !n.hidden);
     for (let a = 0; a < N.length; a++) {
       for (let b = a + 1; b < N.length; b++) {
         const A = N[a],
@@ -408,7 +530,7 @@ export class ForceGraph {
         // start almost on top of each other don't fling each other away.
         d2 = Math.max(d2, 400);
         const d = Math.sqrt(dx * dx + dy * dy) || 1;
-        const rep = 4200 / d2;
+        const rep = repel / d2;
         const fx = (dx / d) * rep,
           fy = (dy / d) * rep;
         A.vx += fx;
@@ -418,12 +540,13 @@ export class ForceGraph {
       }
     }
     this.links.forEach(([a, b]) => {
-      const A = N[a],
-        B = N[b];
+      const A = this.nodes[a],
+        B = this.nodes[b];
+      if (A.hidden || B.hidden) return;
       const dx = B.x - A.x,
         dy = B.y - A.y;
       const d = Math.hypot(dx, dy) || 1;
-      const k = (d - 160) * 0.02;
+      const k = (d - linkLen) * spring;
       const fx = (dx / d) * k,
         fy = (dy / d) * k;
       A.vx += fx;
@@ -433,12 +556,12 @@ export class ForceGraph {
     });
     const maxSpeed = 12;
     let fastest = 0;
-    if (this.dragNode) this.awakeTicks = 0;
+    if (this.dragNode || this.timelapse) this.awakeTicks = 0;
     const cool = Math.max(0, this.awakeTicks++ - 150) / 180;
     const ease = cool >= 1 ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * cool);
     N.forEach((n) => {
-      n.vx += -n.x * 0.006;
-      n.vy += -n.y * 0.006;
+      n.vx += -n.x * center;
+      n.vy += -n.y * center;
       if (!n.fx) {
         n.vx *= 0.82;
         n.vy *= 0.82;
@@ -454,7 +577,7 @@ export class ForceGraph {
     });
     // Come to rest once every node has been barely moving for half a second.
     if (fastest < 0.15 || ease === 0) {
-      if (++this.stillTicks >= 30 && !this.dragNode) this.settled = true;
+      if (++this.stillTicks >= 30 && !this.dragNode && !this.timelapse) this.settled = true;
     } else {
       this.stillTicks = 0;
     }
@@ -464,6 +587,7 @@ export class ForceGraph {
     const ctx = this.ctx;
     if (!ctx) return;
     const { isDark, accent } = this.deps.getTheme();
+    const cfg = this.settings();
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.w, this.h);
     ctx.save();
@@ -490,18 +614,39 @@ export class ForceGraph {
     const ring = bg;
     const txtCol = cssVar("--muted", isDark ? "#8a8a8a" : "#8a7f6a");
     const fontStack = cs?.fontFamily || "'IBM Plex Sans',sans-serif";
+    const lineW = cfg.linkThickness;
 
     this.links.forEach(([a, b]) => {
       const A = this.nodes[a],
         B = this.nodes[b];
+      if (A.hidden || B.hidden) return;
       const on = !!(hov && (A.id === hov || B.id === hov));
-      ctx.strokeStyle = on ? accent : edgeCol;
+      const col = on ? accent : edgeCol;
+      ctx.strokeStyle = col;
       ctx.globalAlpha = hov ? (on ? 0.9 : 0.12) : 0.65;
-      ctx.lineWidth = on ? 1.6 : 1;
+      ctx.lineWidth = (on ? 1.6 : 1) * lineW;
       ctx.beginPath();
       ctx.moveTo(A.x, A.y);
       ctx.lineTo(B.x, B.y);
       ctx.stroke();
+      if (cfg.arrows) {
+        // Arrowhead at the target's edge, pointing from the linking note.
+        const dx = B.x - A.x,
+          dy = B.y - A.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const ux = dx / d,
+          uy = dy / d;
+        const tipX = B.x - ux * (this.radiusOf(B) + 2),
+          tipY = B.y - uy * (this.radiusOf(B) + 2);
+        const size = 5 + 2 * lineW;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.moveTo(tipX, tipY);
+        ctx.lineTo(tipX - ux * size - uy * size * 0.55, tipY - uy * size + ux * size * 0.55);
+        ctx.lineTo(tipX - ux * size + uy * size * 0.55, tipY - uy * size - ux * size * 0.55);
+        ctx.closePath();
+        ctx.fill();
+      }
     });
     ctx.globalAlpha = 1;
     const emptyNodeCol = mixHex(nodeCol, bg, 0.4);
@@ -511,7 +656,15 @@ export class ForceGraph {
     // stroke look like a translucent halo. A flatter, bg-mixed solid color
     // still reads as "faded" without either artifact.
     const phantomCol = mixHex(nodeCol, bg, 0.6);
+    // Tags and attachments get their own hues, like Obsidian's graph.
+    const tagCol = mixHex("#6fa86a", baseGray, 0.25);
+    const attachmentCol = mixHex("#c9a24a", baseGray, 0.25);
+    // Labels fade out as you zoom out; the "Text fade threshold" slider
+    // moves the zoom level where that happens (left = labels stay longer).
+    const fadeAt = 0.55 * Math.pow(2, cfg.textFade);
+    const labelAlpha = Math.max(0, Math.min(1, (this.scale - fadeAt * 0.8) / (fadeAt * 0.2)));
     this.nodes.forEach((n) => {
+      if (n.hidden) return;
       const r = this.radiusOf(n);
       const active = n.id === cur;
       const dim = !!(hset && !hset.has(n.id));
@@ -519,25 +672,31 @@ export class ForceGraph {
       ctx.beginPath();
       ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
       const on = active || hov === n.id;
-      ctx.fillStyle =
-        n.kind === "category"
-          ? on
-            ? accent
-            : categoryCol
-          : n.kind === "phantom"
-            ? phantomCol
-            : n.empty && !on
-              ? emptyNodeCol
-              : on
-                ? accent
-                : nodeCol;
+      ctx.fillStyle = on
+        ? accent
+        : n.color
+          ? n.color
+          : n.kind === "category"
+            ? categoryCol
+            : n.kind === "phantom"
+              ? phantomCol
+              : n.kind === "tag"
+                ? tagCol
+                : n.kind === "attachment"
+                  ? attachmentCol
+                  : n.empty
+                    ? emptyNodeCol
+                    : nodeCol;
       ctx.fill();
       if (n.kind !== "phantom") {
         ctx.lineWidth = 2;
         ctx.strokeStyle = ring;
         ctx.stroke();
       }
-      if (this.scale > 0.55 || n.id === hov || active) {
+      const forced = n.id === hov || active;
+      const a = forced ? 1 : labelAlpha;
+      if (a > 0.01) {
+        ctx.globalAlpha = (dim ? 0.22 : 1) * a;
         ctx.fillStyle = on ? accent : txtCol;
         ctx.font = (on ? "600 " : n.kind === "category" ? "600 " : "500 ") + "11px " + fontStack;
         ctx.textAlign = "center";
@@ -547,6 +706,24 @@ export class ForceGraph {
     });
     ctx.globalAlpha = 1;
     ctx.restore();
+  }
+
+  /** The graph as currently shown, as a PNG with the theme background. */
+  screenshot(): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      const src = this.canvas;
+      if (!src) return resolve(null);
+      const out = document.createElement("canvas");
+      out.width = src.width;
+      out.height = src.height;
+      const c = out.getContext("2d");
+      if (!c) return resolve(null);
+      const bg = (this.host && getComputedStyle(this.host).getPropertyValue("--bg").trim()) || (this.deps.getTheme().isDark ? "#141414" : "#faf7f2");
+      c.fillStyle = bg;
+      c.fillRect(0, 0, out.width, out.height);
+      c.drawImage(src, 0, 0);
+      out.toBlob((b) => resolve(b), "image/png");
+    });
   }
 
   destroy() {

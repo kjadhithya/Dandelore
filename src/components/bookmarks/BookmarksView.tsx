@@ -1,7 +1,8 @@
 "use client";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useVaultStore, sortNotes } from "@/lib/store/useVaultStore";
-import { BookmarkIcon, SortIcon } from "@/components/icons/Icons";
+import { BookmarkIcon, SortIcon, GraphIcon, CloseIcon } from "@/components/icons/Icons";
+import { useGraphSettings } from "@/lib/graph/graphSettings";
 import { SORT_OPTS } from "@/lib/theme/tokens";
 import { formatDate } from "@/lib/date";
 
@@ -18,6 +19,9 @@ export function BookmarksView() {
     s.sort,
   );
   const sortLabel = SORT_OPTS.find(([k]) => k === s.sort)?.[1] || "Sort";
+  const graphBookmarks = useGraphSettings((g) => g.bookmarks);
+  const removeGraphBookmark = useGraphSettings((g) => g.removeBookmark);
+  useEffect(() => useGraphSettings.getState().hydrate(), []);
 
   return (
     <div className="vscroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "26px 22px" }}>
@@ -69,7 +73,36 @@ export function BookmarksView() {
             </div>
           )}
         </div>
-        {notes.length === 0 ? (
+        {graphBookmarks.length > 0 && (
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--faint)", padding: "0 10px 6px" }}>Graph views</div>
+            {graphBookmarks.map((b) => (
+              <div
+                key={b.id}
+                onClick={() => s.navView({ kind: "graph", id: b.id })}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 10px", borderBottom: "1px solid var(--border-soft)", cursor: "pointer" }}
+              >
+                <span style={{ color: "var(--muted)", display: "flex" }}>
+                  <GraphIcon size={16} />
+                </span>
+                <span style={{ flex: 1, fontSize: 14, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.title}</span>
+                <span
+                  role="button"
+                  title="Remove bookmark"
+                  aria-label="Remove bookmark"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeGraphBookmark(b.id);
+                  }}
+                  style={{ color: "var(--faint)", display: "flex", padding: 4, borderRadius: 6, cursor: "pointer" }}
+                >
+                  <CloseIcon size={14} />
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        {notes.length === 0 && graphBookmarks.length > 0 ? null : notes.length === 0 ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "60px 0", color: "var(--muted)" }}>
             <BookmarkIcon size={30} />
             <span style={{ fontSize: 13.5 }}>No bookmarked notes yet</span>

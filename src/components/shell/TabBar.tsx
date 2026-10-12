@@ -2,6 +2,7 @@
 import React, { useRef, useState } from "react";
 import { DragGhost, ghostFrom, type GhostState } from "./DragGhost";
 import { useVaultStore } from "@/lib/store/useVaultStore";
+import { useGraphSettings } from "@/lib/graph/graphSettings";
 import type { TabState } from "@/types/vault";
 
 function viewLabel(t: TabState, notes: ReturnType<typeof useVaultStore.getState>["notes"]) {
@@ -11,7 +12,7 @@ function viewLabel(t: TabState, notes: ReturnType<typeof useVaultStore.getState>
     const n = notes.find((x) => x.id === v.id);
     return n ? n.title || "Untitled" : "(deleted)";
   }
-  if (v.kind === "graph") return "Graph view";
+  if (v.kind === "graph") return (v.id && useGraphSettings.getState().bookmarks.find((b) => b.id === v.id)?.title) || "Graph view";
   if (v.kind === "journal") return "Calendar";
   if (v.kind === "categories") return "Categories";
   if (v.kind === "category") return v.id || "Category";

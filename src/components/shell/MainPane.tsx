@@ -12,7 +12,7 @@ import { BookmarksView } from "@/components/bookmarks/BookmarksView";
 import { BackIcon, ForwardIcon, NewNoteIcon, GripIcon } from "@/components/icons/Icons";
 import { useIsMobile } from "@/lib/hooks/useIsMobile";
 
-function NavBar({ split }: { split?: boolean }) {
+function NavBar({ split, right }: { split?: boolean; right?: React.ReactNode }) {
   const s = useVaultStore();
   const tab = split ? s.split?.tabs[s.split.active] : s.tabs[s.active];
   const canBack = !!(tab && tab.hi > 0);
@@ -36,6 +36,7 @@ function NavBar({ split }: { split?: boolean }) {
       <div onClick={goForward} title="Forward" style={navBtn(canFwd)}>
         <ForwardIcon />
       </div>
+      {right}
     </div>
   );
 }
@@ -121,7 +122,7 @@ function PaneContent({ split }: { split?: boolean }) {
   }
   // Notes get back/forward built into their own toolbar; every other view
   // needs the standalone NavBar since it has no toolbar of its own.
-  if (kind === "graph") return (<><NavBar split={split} /><GraphView split={split} /></>);
+  if (kind === "graph") return <GraphView split={split} bookmarkId={view!.id} renderNav={(right) => <NavBar split={split} right={right} />} />;
   if (kind === "journal") return (<><NavBar split={split} /><JournalView /></>);
   if (kind === "categories") return (<><NavBar split={split} /><CategoriesView /></>);
   if (kind === "category") return (<><NavBar split={split} /><CategoryPage name={view!.id || ""} /></>);
