@@ -49,6 +49,19 @@ export class ForceGraph {
   deps: ForceGraphDeps;
   destroyed = false;
 
+  // Obsidian-style motion: one tick per frame so the opening bloom and the
+  // spring-back after a drag play out in real time, with the original forces
+  // at full strength (same final shape). The simulation rests once nothing
+  // is moving and wakes up again on drag or when nodes/links change.
+  settled = false;
+  stillTicks = 0;
+  structureSig = "";
+  // Ticks since the layout last woke up. After a couple of seconds of free
+  // motion, each tick's movement is eased down to nothing (the forces stay
+  // the same), so the layout glides to a stop like Obsidian's instead of
+  // creeping around for half a minute.
+  awakeTicks = 0;
+
   constructor(deps: ForceGraphDeps) {
     this.deps = deps;
   }
@@ -119,6 +132,7 @@ export class ForceGraph {
       if (n) {
         this.dragNode = n;
         n.fx = true;
+        this.reheat();
       } else {
         this.panning = true;
         canvas.style.cursor = "grabbing";
@@ -194,6 +208,7 @@ export class ForceGraph {
         if (n) {
           this.dragNode = n;
           n.fx = true;
+          this.reheat();
         } else {
           this.panning = true;
         }
@@ -277,6 +292,12 @@ export class ForceGraph {
 
   cleanup: (() => void) | null = null;
 
+  reheat() {
+    this.settled = false;
+    this.stillTicks = 0;
+    this.awakeTicks = 0;
+  }
+
   buildData() {
     const notes = this.deps.getNotes();
     const categories = this.deps.getCategories();
@@ -290,7 +311,18 @@ export class ForceGraph {
     // random spot.
     const prev: Record<string, { x: number; y: number; vx: number; vy: number }> = {};
     this.nodes.forEach((n) => (prev[n.id] = { x: n.x, y: n.y, vx: n.vx, vy: n.vy }));
-    const posFor = (id: string) => prev[id] || { x: rand(), y: rand(), vx: 0, vy: 0 };
+    // On first open, seed nodes on a tight sunflower spiral around the centre
+    // (like Obsidian/d3) so the graph blooms outward smoothly instead of
+    // starting from a random pile that flings itself apart.
+    const firstBuild = this.nodes.length === 0;
+    let seeded = 0;
+    const posFor = (id: string) => {
+      if (prev[id]) return prev[id];
+      if (!firstBuild) return { x: rand(), y: rand(), vx: 0, vy: 0 };
+      const r = 10 * Math.sqrt(0.5 + seeded),
+        a = seeded++ * Math.PI * (3 - Math.sqrt(5));
+      return { x: r * Math.cos(a), y: r * Math.sin(a), vx: 0, vy: 0 };
+    };
     const idOf: Record<string, number> = {};
     const nodes: GraphNode[] = [];
     notes.forEach((n) => {
@@ -348,9 +380,18 @@ export class ForceGraph {
     const deg: Record<string, number> = {};
     nodes.forEach((n) => (deg[n.id] = nb[n.id].size));
     this.deg = deg;
+
+    // buildData() re-runs on every notes change, including plain typing;
+    // only wake the layout up when nodes or links actually changed.
+    const sig = nodes.map((n) => n.id).join("|") + "#" + links.map(([a, b]) => a + "-" + b).join(",");
+    if (sig !== this.structureSig) {
+      this.reheat();
+      this.structureSig = sig;
+    }
   }
 
   physicsStep() {
+    if (this.settled && !this.dragNode) return;
     const N = this.nodes;
     for (let a = 0; a < N.length; a++) {
       for (let b = a + 1; b < N.length; b++) {
@@ -360,11 +401,13 @@ export class ForceGraph {
           dy = A.y - B.y;
         let d2 = dx * dx + dy * dy;
         if (d2 < 0.01) {
-          d2 = 0.01;
           dx = Math.random();
           dy = Math.random();
         }
-        const d = Math.sqrt(d2);
+        // Treat anything closer than 20px as 20px apart, so two nodes that
+        // start almost on top of each other don't fling each other away.
+        d2 = Math.max(d2, 400);
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
         const rep = 4200 / d2;
         const fx = (dx / d) * rep,
           fy = (dy / d) * rep;
@@ -388,16 +431,33 @@ export class ForceGraph {
       B.vx -= fx;
       B.vy -= fy;
     });
+    const maxSpeed = 12;
+    let fastest = 0;
+    if (this.dragNode) this.awakeTicks = 0;
+    const cool = Math.max(0, this.awakeTicks++ - 150) / 180;
+    const ease = cool >= 1 ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * cool);
     N.forEach((n) => {
       n.vx += -n.x * 0.006;
       n.vy += -n.y * 0.006;
       if (!n.fx) {
         n.vx *= 0.82;
         n.vy *= 0.82;
-        n.x += n.vx;
-        n.y += n.vy;
+        const sp = Math.hypot(n.vx, n.vy);
+        if (sp > maxSpeed) {
+          n.vx *= maxSpeed / sp;
+          n.vy *= maxSpeed / sp;
+        }
+        n.x += n.vx * ease;
+        n.y += n.vy * ease;
+        fastest = Math.max(fastest, sp * ease);
       }
     });
+    // Come to rest once every node has been barely moving for half a second.
+    if (fastest < 0.15 || ease === 0) {
+      if (++this.stillTicks >= 30 && !this.dragNode) this.settled = true;
+    } else {
+      this.stillTicks = 0;
+    }
   }
 
   draw() {
