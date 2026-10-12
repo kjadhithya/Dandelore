@@ -49,13 +49,6 @@ export class ForceGraph {
   deps: ForceGraphDeps;
   destroyed = false;
 
-  // The layout's forces are the original ones at full strength (so the
-  // graph keeps its usual shape); the simulation just stops once nothing is
-  // moving any more, and wakes up again on drag or when links change.
-  settled = false;
-  stillTicks = 0;
-  structureSig = "";
-
   constructor(deps: ForceGraphDeps) {
     this.deps = deps;
   }
@@ -126,7 +119,6 @@ export class ForceGraph {
       if (n) {
         this.dragNode = n;
         n.fx = true;
-        this.reheat();
       } else {
         this.panning = true;
         canvas.style.cursor = "grabbing";
@@ -202,7 +194,6 @@ export class ForceGraph {
         if (n) {
           this.dragNode = n;
           n.fx = true;
-          this.reheat();
         } else {
           this.panning = true;
         }
@@ -275,22 +266,9 @@ export class ForceGraph {
     };
     this.cleanup = cleanupFns;
 
-    // Do the wild first part of the layout off-screen (up to ~100ms), so
-    // opening the graph shows it easing into place, not exploding from a pile.
-    const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
-    const warmUntil = now() + 100;
-    while (now() < warmUntil && this.physicsStep());
-
     const step = () => {
       if (this.destroyed) return;
-      // Several ticks per frame (within a ~6ms budget) so the rest of the
-      // layout settles in about a second; same forces, so same final shape.
-      // One tick per frame while dragging keeps the drag feeling natural.
-      if (this.dragNode) this.physicsStep();
-      else {
-        const until = now() + 6;
-        while (this.physicsStep() && now() < until);
-      }
+      this.physicsStep();
       this.draw();
       this.raf = requestAnimationFrame(step);
     };
@@ -298,11 +276,6 @@ export class ForceGraph {
   }
 
   cleanup: (() => void) | null = null;
-
-  reheat() {
-    this.settled = false;
-    this.stillTicks = 0;
-  }
 
   buildData() {
     const notes = this.deps.getNotes();
@@ -375,19 +348,9 @@ export class ForceGraph {
     const deg: Record<string, number> = {};
     nodes.forEach((n) => (deg[n.id] = nb[n.id].size));
     this.deg = deg;
-
-    // buildData() re-runs on every notes change, including plain typing;
-    // only wake the layout up when nodes or links actually changed.
-    const sig = nodes.map((n) => n.id).join("|") + "#" + links.map(([a, b]) => a + "-" + b).join(",");
-    if (sig !== this.structureSig) {
-      if (this.structureSig) this.reheat();
-      this.structureSig = sig;
-    }
   }
 
-  /** One simulation tick. Returns false once the layout has settled. */
-  physicsStep(): boolean {
-    if (this.settled && !this.dragNode) return false;
+  physicsStep() {
     const N = this.nodes;
     for (let a = 0; a < N.length; a++) {
       for (let b = a + 1; b < N.length; b++) {
@@ -397,14 +360,11 @@ export class ForceGraph {
           dy = A.y - B.y;
         let d2 = dx * dx + dy * dy;
         if (d2 < 0.01) {
+          d2 = 0.01;
           dx = Math.random();
           dy = Math.random();
         }
-        // Two nodes that start nearly on top of each other used to get an
-        // enormous push and fling each other off-screen; treat anything
-        // closer than 20px as 20px apart.
-        d2 = Math.max(d2, 400);
-        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const d = Math.sqrt(d2);
         const rep = 4200 / d2;
         const fx = (dx / d) * rep,
           fy = (dy / d) * rep;
@@ -428,31 +388,16 @@ export class ForceGraph {
       B.vx -= fx;
       B.vy -= fy;
     });
-    const maxSpeed = 40;
-    let fastest = 0;
     N.forEach((n) => {
       n.vx += -n.x * 0.006;
       n.vy += -n.y * 0.006;
       if (!n.fx) {
         n.vx *= 0.82;
         n.vy *= 0.82;
-        const sp = Math.hypot(n.vx, n.vy);
-        if (sp > maxSpeed) {
-          n.vx *= maxSpeed / sp;
-          n.vy *= maxSpeed / sp;
-        }
         n.x += n.vx;
         n.y += n.vy;
-        fastest = Math.max(fastest, Math.abs(n.vx), Math.abs(n.vy));
       }
     });
-    // Stop once every node has been (practically) still for half a second.
-    if (fastest < 0.05) {
-      if (++this.stillTicks >= 30 && !this.dragNode) this.settled = true;
-    } else {
-      this.stillTicks = 0;
-    }
-    return true;
   }
 
   draw() {
