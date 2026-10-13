@@ -306,6 +306,7 @@ function GraphSettingsPanel({ onClose, onAnimate }: { onClose: () => void; onAni
   const st = useGraphSettings();
   const cfg = st.settings;
   const { accent } = useDerivedTheme();
+  const isMobile = useIsMobile();
   const set = (patch: Partial<GraphSettings>) => st.set(patch);
 
   return (
@@ -326,6 +327,9 @@ function GraphSettingsPanel({ onClose, onAnimate }: { onClose: () => void; onAni
         fontSize: 13,
         color: "var(--ink)",
         zIndex: 5,
+        // On phones the floating new-note button sits over the panel's
+        // bottom corner; leave room so "Link distance" can scroll clear of it.
+        paddingBottom: isMobile ? 64 : 0,
       }}
     >
       <Section
@@ -346,12 +350,12 @@ function GraphSettingsPanel({ onClose, onAnimate }: { onClose: () => void; onAni
           <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--faint)", display: "flex" }}>
             <SearchIcon size={14} />
           </span>
-          <input
+          <QueryInput
             id="graph-search"
             value={cfg.search}
-            onChange={(e) => set({ search: e.target.value })}
+            onChange={(v) => set({ search: v })}
             placeholder="Search files..."
-            aria-label="Search files"
+            ariaLabel="Search files"
             style={{ width: "100%", boxSizing: "border-box", fontSize: 13, color: "var(--ink)", background: "var(--input)", border: "1px solid var(--border)", borderRadius: 8, padding: "7px 10px 7px 30px", outline: "none" }}
           />
         </div>
@@ -364,12 +368,12 @@ function GraphSettingsPanel({ onClose, onAnimate }: { onClose: () => void; onAni
       <Section id="groups" title="Groups">
         {cfg.groups.map((g, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <input
+            <QueryInput
               id={`graph-group-${i}`}
               value={g.query}
-              onChange={(e) => st.setGroup(i, { query: e.target.value })}
+              onChange={(v) => st.setGroup(i, { query: v })}
               placeholder="Enter query..."
-              aria-label="Group query"
+              ariaLabel="Group query"
               style={{ flex: 1, minWidth: 0, fontSize: 13, color: "var(--ink)", background: "var(--input)", border: "1px solid var(--border)", borderRadius: 8, padding: "7px 10px", outline: "none" }}
             />
             <label title="Group colour" style={{ position: "relative", width: 22, height: 22, borderRadius: "50%", background: g.color, flex: "0 0 auto", cursor: "pointer" }}>
@@ -512,6 +516,271 @@ function Slider({
           style={{ flex: 1, minWidth: 0, accentColor: accent, background: `linear-gradient(to right, ${accent} ${pct}%, var(--border) ${pct}%)` }}
         />
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Query field with Obsidian's search suggestions. Focused and empty (or after
+// a space): "Search options". Picking one fills the field and moves on to
+// the next list, like Obsidian: path: → folders, tag: → tags, file: → notes,
+// line:/section: → "()" with the cursor inside, [property] → "[]" with
+// properties, then that property's values.
+
+const SEARCH_OPTIONS: { insert: string; caretBack: number; label: string; desc: string }[] = [
+  { insert: "path:", caretBack: 0, label: "path:", desc: "match path of the file" },
+  { insert: "file:", caretBack: 0, label: "file:", desc: "match file name" },
+  { insert: "tag:", caretBack: 0, label: "tag:", desc: "search for tags" },
+  { insert: "line:()", caretBack: 1, label: "line:", desc: "search keywords on same line" },
+  { insert: "section:()", caretBack: 1, label: "section:", desc: "search keywords under same heading" },
+  { insert: "[]", caretBack: 1, label: "[property]", desc: "match property" },
+];
+
+const SEARCH_EXAMPLES: [string, string][] = [
+  ["tag:#journal", "notes tagged #journal"],
+  ["path:Recipes", "notes in the Recipes folder"],
+  ["line:(milk eggs)", "both words on one line"],
+  ["section:(plan budget)", "both words under one heading"],
+  ["[category:Travel]", "notes in the Travel category"],
+  ["-word", "leave out notes containing word"],
+  ["a OR b", "either term"],
+];
+
+const PROPERTIES = ["category", "tags", "date", "folder", "title"];
+
+type Suggest =
+  | { kind: "options" }
+  | { kind: "list"; title: string; items: { label: string; value: string }[]; from: number; to: number; after: string };
+
+const quoteIfNeeded = (v: string) => (/\s/.test(v) ? `"${v}"` : v);
+
+/** Work out what to suggest from the text before the cursor. */
+function suggestFor(value: string, caret: number): Suggest | null {
+  const before = value.slice(0, caret);
+  if (before.trim() === "" || /\s$/.test(before)) return value.slice(caret).trim() === "" || /^\s/.test(value.slice(caret)) ? { kind: "options" } : null;
+  const st = useVaultStore.getState();
+  const tokStart = Math.max(before.lastIndexOf(" "), before.lastIndexOf("(")) + 1;
+  // Inside an unclosed [ … ]: properties, or a property's values.
+  const lb = before.lastIndexOf("[");
+  if (lb >= 0 && before.indexOf("]", lb) < 0) {
+    const inner = before.slice(lb + 1);
+    const colon = inner.indexOf(":");
+    const closeAfter = value[caret] === "]" ? "" : "]";
+    if (colon < 0) {
+      const q = inner.toLowerCase();
+      return { kind: "list", title: "Properties", items: PROPERTIES.filter((p) => p.includes(q)).map((p) => ({ label: p, value: p + ":" })), from: lb + 1, to: caret, after: "" };
+    }
+    const prop = inner.slice(0, colon).trim().toLowerCase();
+    const q = inner.slice(colon + 1).replace(/^"/, "").toLowerCase();
+    const vals =
+      prop === "category"
+        ? st.categories
+        : prop === "tags" || prop === "tag"
+          ? st.allTags()
+          : prop === "folder"
+            ? st.folderList
+            : prop === "date"
+              ? [...new Set(st.notes.map((n) => n.date).filter(Boolean))].sort().reverse()
+              : prop === "title"
+                ? st.notes.map((n) => n.title).filter(Boolean)
+                : [];
+    const items = vals.filter((v) => v.toLowerCase().includes(q)).slice(0, 200).map((v) => ({ label: v, value: quoteIfNeeded(v) }));
+    return { kind: "list", title: prop.charAt(0).toUpperCase() + prop.slice(1), items, from: lb + 1 + colon + 1, to: caret, after: closeAfter };
+  }
+  const tok = before.slice(tokStart).replace(/^-/, "");
+  const m = tok.match(/^(path|tag|file):(.*)$/i);
+  if (!m) return null;
+  const op = m[1].toLowerCase();
+  const q = m[2].replace(/^"/, "").replace(/^#/, "").toLowerCase();
+  const from = caret - m[2].length;
+  if (op === "tag") {
+    const items = st.allTags().filter((t) => t.toLowerCase().includes(q)).map((t) => ({ label: "#" + t, value: "#" + t }));
+    return { kind: "list", title: "Tags", items, from, to: caret, after: "" };
+  }
+  if (op === "path") {
+    const items = [...st.folderList].sort((a, b) => a.localeCompare(b)).filter((f) => f.toLowerCase().includes(q)).map((f) => ({ label: f, value: quoteIfNeeded(f) }));
+    return { kind: "list", title: "Folders", items, from, to: caret, after: "" };
+  }
+  const items = st.notes
+    .map((n) => n.title)
+    .filter((t) => t && t.toLowerCase().includes(q))
+    .sort((a, b) => a.localeCompare(b))
+    .slice(0, 200)
+    .map((t) => ({ label: t, value: quoteIfNeeded(t) }));
+  return { kind: "list", title: "Files", items, from, to: caret, after: "" };
+}
+
+function QueryInput({ id, value, onChange, placeholder, ariaLabel, style }: { id: string; value: string; onChange: (v: string) => void; placeholder: string; ariaLabel: string; style: React.CSSProperties }) {
+  const ref = useRef<HTMLInputElement | null>(null);
+  const [focused, setFocused] = useState(false);
+  const [caret, setCaret] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  // Highlighted row, remembered per list (a new list starts at the top).
+  const [activeState, setActiveState] = useState<{ key: string; i: number }>({ key: "", i: 0 });
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  // Re-read on every render so the lists follow the vault (new tags, etc.).
+  const sug = focused && !dismissed ? suggestFor(value, Math.min(caret, value.length)) : null;
+  const open = !!sug && (sug.kind === "options" || sug.items.length > 0);
+  const listItems = sug?.kind === "list" ? sug.items : [];
+  const count = sug?.kind === "options" ? SEARCH_OPTIONS.length : listItems.length;
+  const sugKey = sug ? (sug.kind === "options" ? "o" : sug.title + ":" + sug.from) : "";
+
+  const active = activeState.key === sugKey ? activeState.i : 0;
+  const setActive = (f: number | ((a: number) => number)) => setActiveState({ key: sugKey, i: typeof f === "function" ? f(active) : f });
+  useEffect(() => {
+    if (!open || !ref.current) return;
+    const place = () => {
+      const r = ref.current!.getBoundingClientRect();
+      const width = Math.min(340, window.innerWidth - 16);
+      setPos({ top: r.bottom + 6, left: Math.max(8, Math.min(r.left + r.width / 2 - width / 2, window.innerWidth - width - 8)), width });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
+  const syncCaret = () => setCaret(ref.current?.selectionStart ?? value.length);
+
+  const replace = (from: number, to: number, text: string, caretAt: number) => {
+    const next = value.slice(0, from) + text + value.slice(to);
+    onChange(next);
+    const c = from + caretAt;
+    setCaret(c);
+    requestAnimationFrame(() => {
+      ref.current?.focus();
+      ref.current?.setSelectionRange(c, c);
+    });
+  };
+
+  const pickOption = (i: number) => {
+    const o = SEARCH_OPTIONS[i];
+    const c = Math.min(caret, value.length);
+    replace(c, c, o.insert, o.insert.length - o.caretBack);
+  };
+  const pickItem = (i: number) => {
+    if (sug?.kind !== "list") return;
+    const it = sug.items[i];
+    const closing = sug.after;
+    const isProp = sug.title === "Properties";
+    // After a property name, keep the list open for its values; otherwise
+    // the term is complete, so close the list until the next keystroke.
+    const skipBracket = !isProp && value[sug.to] === "]";
+    replace(sug.from, sug.to, it.value + closing, it.value.length + closing.length + (skipBracket ? 1 : 0));
+    if (!isProp) setDismissed(true);
+  };
+
+  return (
+    <>
+      <input
+        ref={ref}
+        id={id}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setCaret(e.target.selectionStart ?? e.target.value.length);
+          setDismissed(false);
+        }}
+        onFocus={() => {
+          setFocused(true);
+          setDismissed(false);
+          syncCaret();
+        }}
+        onBlur={() => setFocused(false)}
+        onSelect={syncCaret}
+        onClick={() => {
+          syncCaret();
+          setDismissed(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            if (open) setDismissed(true);
+            else ref.current?.blur();
+            return;
+          }
+          if (!open || !count) return;
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setActive((a) => (a + 1) % count);
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setActive((a) => (a - 1 + count) % count);
+          } else if (e.key === "Enter" || e.key === "Tab") {
+            e.preventDefault();
+            if (sug?.kind === "options") pickOption(active);
+            else pickItem(active);
+          }
+        }}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        autoComplete="off"
+        spellCheck={false}
+        style={style}
+      />
+      {open && pos && (
+        <div
+          role="listbox"
+          aria-label={sug!.kind === "options" ? "Search options" : sug!.kind === "list" ? sug!.title : undefined}
+          // Keep focus in the field while picking.
+          onMouseDown={(e) => e.preventDefault()}
+          className="vscroll"
+          style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, maxHeight: `calc(100vh - ${pos.top + 12}px)`, overflowY: "auto", boxSizing: "border-box", zIndex: 60, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 16px 40px -12px rgba(0,0,0,.5)", padding: "8px 6px" }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "2px 8px 6px" }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>{sug!.kind === "options" ? "Search options" : sug!.title}</span>
+            <span
+              role="button"
+              title={showHelp ? "Hide examples" : "Show examples"}
+              aria-label={showHelp ? "Hide examples" : "Show examples"}
+              aria-expanded={showHelp}
+              onClick={() => setShowHelp((v) => !v)}
+              style={{ display: "flex", cursor: "pointer", color: showHelp ? "var(--ink)" : "var(--muted)" }}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+                <circle cx="12" cy="12" r="9.5" />
+                <line x1="12" y1="11" x2="12" y2="16.5" />
+                <circle cx="12" cy="7.6" r="0.6" fill="currentColor" />
+              </svg>
+            </span>
+          </div>
+          {showHelp && (
+            <div style={{ borderBottom: "1px solid var(--border)", margin: "0 4px 6px", padding: "2px 4px 8px", display: "flex", flexDirection: "column", gap: 5 }}>
+              {SEARCH_EXAMPLES.map(([ex, what]) => (
+                <div key={ex} style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.4 }}>
+                  <code style={{ fontFamily: "var(--font-ibm-plex-mono, ui-monospace, monospace)", color: "var(--ink)", fontSize: 11.5 }}>{ex}</code> {what}
+                </div>
+              ))}
+            </div>
+          )}
+          {sug!.kind === "options"
+            ? SEARCH_OPTIONS.map((o, i) => <SuggestRow key={o.label} label={o.label} desc={o.desc} active={i === active} onHover={() => setActive(i)} onPick={() => pickOption(i)} />)
+            : listItems.map((it, i) => <SuggestRow key={it.label} label={it.label} active={i === active} onHover={() => setActive(i)} onPick={() => pickItem(i)} />)}
+        </div>
+      )}
+    </>
+  );
+}
+
+function SuggestRow({ label, desc, active, onHover, onPick }: { label: string; desc?: string; active: boolean; onHover: () => void; onPick: () => void }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (active) ref.current?.scrollIntoView({ block: "nearest" });
+  }, [active]);
+  return (
+    <div
+      ref={ref}
+      role="option"
+      aria-selected={active}
+      onClick={onPick}
+      onMouseMove={onHover}
+      style={{ display: "flex", gap: 6, alignItems: "baseline", padding: "6px 8px", borderRadius: 6, cursor: "pointer", background: active ? "var(--active)" : "transparent", fontSize: 13.5, minWidth: 0 }}
+    >
+      <span style={{ color: "var(--ink)", fontWeight: desc ? 500 : 400, flex: desc ? "0 0 auto" : "1 1 auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+      {desc && <span style={{ color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{desc}</span>}
     </div>
   );
 }

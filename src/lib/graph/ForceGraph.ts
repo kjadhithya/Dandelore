@@ -43,6 +43,11 @@ const BASE_SPRING = 0.02;
 const BASE_LINK_LEN = 160;
 const BASE_CENTER = 0.006;
 
+// A wikilink/embed to one of these is a file, not a note: like Obsidian it
+// shows as an attachment (only with "Attachments" on), never as a faded
+// "missing note".
+const ATTACHMENT_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|avif|heic|pdf|mp3|wav|m4a|ogg|flac|mp4|webm|mov|mkv|zip|csv|xlsx?|docx?|pptx?|txt|json)$/i;
+
 export class ForceGraph {
   host: HTMLDivElement | null = null;
   canvas: HTMLCanvasElement | null = null;
@@ -310,10 +315,12 @@ export class ForceGraph {
 
     const step = () => {
       if (this.destroyed) return;
+      // Schedule the next frame first, so one bad frame can never freeze
+      // the graph for good.
+      this.raf = requestAnimationFrame(step);
       this.timelapseStep();
       this.physicsStep();
       this.draw();
-      this.raf = requestAnimationFrame(step);
     };
     this.raf = requestAnimationFrame(step);
   }
@@ -356,7 +363,7 @@ export class ForceGraph {
 
     // "Search files" narrows the graph to matching notes (plus the tags,
     // attachments and categories they connect to), like Obsidian's filter.
-    const target = (n: Note): QueryTarget => ({ title: n.title, content: n.content, folder: n.folder, category: n.category, tags: tagsOf(n) });
+    const target = (n: Note): QueryTarget => ({ title: n.title, content: n.content, folder: n.folder, category: n.category, tags: tagsOf(n), date: n.date });
     const search = compileQuery(cfg.search);
     const shown = search ? notes.filter((n) => search(target(n))) : notes;
     const groupMatchers = cfg.groups.map((g) => ({ color: g.color, match: compileQuery(g.query) })).filter((g) => g.match);
@@ -390,8 +397,19 @@ export class ForceGraph {
     });
 
     shown.forEach((n) => {
-      this.deps.getLinksOf(n).forEach((t) => {
-        const tg = this.deps.getByTitle(t);
+      const addAttachment = (fname: string) => {
+        const aid = "att:" + fname.toLowerCase();
+        addNode({ id: aid, title: fname, empty: false, kind: "attachment", noteId: n.id, color: groupColor({ title: fname, content: "", folder: "", category: "", tags: [] }) });
+        addLink(n.id, aid);
+      };
+      this.deps.getLinksOf(n).forEach((raw) => {
+        // [[file.png|alt]] / [[file.png#page=2]] → file.png
+        const t = raw.split("|")[0].split("#")[0].trim();
+        if (ATTACHMENT_EXT.test(t) && !this.deps.getByTitle(raw)) {
+          if (cfg.showAttachments) addAttachment(t.split("/").pop() || t);
+          return;
+        }
+        const tg = this.deps.getByTitle(raw);
         if (tg) {
           if (idOf[tg.id] !== undefined) addLink(n.id, tg.id);
           return;
@@ -415,11 +433,7 @@ export class ForceGraph {
         });
       }
       if (cfg.showAttachments) {
-        Object.keys(n.attachments || {}).forEach((fname) => {
-          const aid = "att:" + fname.toLowerCase();
-          addNode({ id: aid, title: fname, empty: false, kind: "attachment", noteId: n.id, color: groupColor({ title: fname, content: "", folder: "", category: "", tags: [] }) });
-          addLink(n.id, aid);
-        });
+        Object.keys(n.attachments || {}).forEach(addAttachment);
       }
     });
 
@@ -435,6 +449,8 @@ export class ForceGraph {
 
     this.nodes = finalNodes;
     this.links = finalLinks;
+    // A hovered/touched node that a filter just removed mustn't linger.
+    if (this.hover && !finalNodes.some((n) => n.id === this.hover)) this.hover = null;
     this.nb = nb;
     const deg: Record<string, number> = {};
     finalNodes.forEach((n) => (deg[n.id] = nb[n.id].size));
@@ -466,7 +482,7 @@ export class ForceGraph {
     notes.forEach((n) => {
       order.push(n.id);
       placed.add(n.id);
-      this.nb[n.id].forEach((m) => {
+      (this.nb[n.id] || []).forEach((m) => {
         const mn = N.find((x) => x.id === m);
         if (mn && mn.kind !== "note" && !placed.has(m)) {
           order.push(m);
@@ -596,7 +612,7 @@ export class ForceGraph {
 
     const cur = this.deps.getCurId();
     const hov = this.hover;
-    const hset = hov ? new Set([hov, ...this.nb[hov]]) : null;
+    const hset = hov && this.nb[hov] ? new Set([hov, ...this.nb[hov]]) : null;
     // Reading the vault's actual current CSS variables (rather than a
     // hardcoded isDark ? warm-dark : warm-light pair) means the graph
     // follows whichever theme is really active — the old hardcoded pair
