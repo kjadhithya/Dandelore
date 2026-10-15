@@ -84,6 +84,22 @@ export class ForceGraph {
   // the same), so the layout glides to a stop like Obsidian's instead of
   // creeping around for half a minute.
   awakeTicks = 0;
+  /** When the layout last woke up (ms). The glide to rest is timed by
+   * ticks or by the clock, whichever is further along, so a slow device
+   * that manages fewer frames still comes to rest in ~5.5s instead of
+   * animating (and redrawing) for half a minute. */
+  awakeSince = 0;
+
+  // Redraw only when something visible changed (layout moving, hover, pan,
+  // zoom, size, data, settings or theme). Repainting every frame while
+  // nothing moved kept the browser busy and made zooming lag on slower
+  // machines.
+  lastDrawSig = "";
+  lastDrawSettings: GraphSettings | null = null;
+  dataVersion = 0;
+  colors = { bg: "#141414", baseGray: "#736b5a", edgeCol: "#363636", txtCol: "#8a8a8a", fontStack: "'IBM Plex Sans',sans-serif" };
+  colorsKey = "";
+  colorsCheckedAt = 0;
 
   constructor(deps: ForceGraphDeps) {
     this.deps = deps;
@@ -319,8 +335,8 @@ export class ForceGraph {
       // the graph for good.
       this.raf = requestAnimationFrame(step);
       this.timelapseStep();
-      this.physicsStep();
-      this.draw();
+      const moved = this.physicsStep();
+      if (moved || this.viewChanged()) this.draw();
     };
     this.raf = requestAnimationFrame(step);
   }
@@ -331,6 +347,7 @@ export class ForceGraph {
     this.settled = false;
     this.stillTicks = 0;
     this.awakeTicks = 0;
+    this.awakeSince = 0;
   }
 
   buildData() {
@@ -449,6 +466,7 @@ export class ForceGraph {
 
     this.nodes = finalNodes;
     this.links = finalLinks;
+    this.dataVersion++;
     // A hovered/touched node that a filter just removed mustn't linger.
     if (this.hover && !finalNodes.some((n) => n.id === this.hover)) this.hover = null;
     this.nb = nb;
@@ -518,13 +536,15 @@ export class ForceGraph {
       n.y = (anchor ? anchor.y : 0) + jitter();
       n.vx = n.vy = 0;
       n.hidden = false;
+      this.dataVersion++;
       this.reheat();
     }
     if (tl.shown >= tl.order.length) this.timelapse = null;
   }
 
-  physicsStep() {
-    if (this.settled && !this.dragNode) return;
+  /** One simulation tick; false when the layout is at rest (nothing ran). */
+  physicsStep(): boolean {
+    if (this.settled && !this.dragNode) return false;
     const cfg = this.settings();
     const repel = BASE_REPEL * (cfg.repelForce / GRAPH_DEFAULTS.repelForce);
     const spring = BASE_SPRING * (cfg.linkForce / GRAPH_DEFAULTS.linkForce);
@@ -572,8 +592,13 @@ export class ForceGraph {
     });
     const maxSpeed = 12;
     let fastest = 0;
-    if (this.dragNode || this.timelapse) this.awakeTicks = 0;
-    const cool = Math.max(0, this.awakeTicks++ - 150) / 180;
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (this.dragNode || this.timelapse || !this.awakeSince) {
+      if (this.dragNode || this.timelapse) this.awakeTicks = 0;
+      this.awakeSince = now;
+    }
+    // 150 ticks ≈ 2.5s of free motion, then a 180-tick ≈ 3s glide to rest.
+    const cool = Math.max(Math.max(0, this.awakeTicks++ - 150) / 180, Math.max(0, now - this.awakeSince - 2500) / 3000);
     const ease = cool >= 1 ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * cool);
     N.forEach((n) => {
       n.vx += -n.x * center;
@@ -597,13 +622,54 @@ export class ForceGraph {
     } else {
       this.stillTicks = 0;
     }
+    return true;
+  }
+
+  /** Re-read the theme's colours (at most twice a second — reading styles
+   * every frame was measurable work). */
+  refreshColors() {
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (this.colorsKey && now - this.colorsCheckedAt < 500) return;
+    this.colorsCheckedAt = now;
+    const { isDark } = this.deps.getTheme();
+    // Reading the vault's actual current CSS variables (rather than a
+    // hardcoded isDark ? warm-dark : warm-light pair) means the graph
+    // follows whichever theme is really active — the old hardcoded pair
+    // was always the *warm* theme's colors, so plain Dark/Light rendered
+    // with a warm ring/text tint that didn't match either theme.
+    const cs = this.host ? getComputedStyle(this.host) : null;
+    const cssVar = (name: string, fallback: string) => cs?.getPropertyValue(name).trim() || fallback;
+    this.colors = {
+      bg: cssVar("--bg", isDark ? "#141414" : "#faf7f2"),
+      baseGray: cssVar("--faint", isDark ? "#736b5a" : "#a2977f"),
+      edgeCol: cssVar("--border", isDark ? "#363636" : "#e2dcc9"),
+      txtCol: cssVar("--muted", isDark ? "#8a8a8a" : "#8a7f6a"),
+      fontStack: cs?.fontFamily || "'IBM Plex Sans',sans-serif",
+    };
+    this.colorsKey = JSON.stringify(this.colors);
+  }
+
+  /** Whether anything that affects the picture changed since the last draw. */
+  viewChanged(): boolean {
+    this.refreshColors();
+    const { isDark, accent } = this.deps.getTheme();
+    const cfg = this.settings();
+    const sig = [this.tx, this.ty, this.scale, this.w, this.h, this.dpr, this.hover, this.deps.getCurId(), isDark, accent, this.dataVersion, this.colorsKey].join("|");
+    if (sig === this.lastDrawSig && cfg === this.lastDrawSettings) return false;
+    this.lastDrawSig = sig;
+    this.lastDrawSettings = cfg;
+    return true;
   }
 
   draw() {
     const ctx = this.ctx;
     if (!ctx) return;
-    const { isDark, accent } = this.deps.getTheme();
+    const { accent } = this.deps.getTheme();
     const cfg = this.settings();
+    this.refreshColors();
+    // Keep the change-check in step with this draw, so the frame after a
+    // forced draw (e.g. physics) isn't drawn a second time for nothing.
+    this.viewChanged();
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.w, this.h);
     ctx.save();
@@ -613,57 +679,61 @@ export class ForceGraph {
     const cur = this.deps.getCurId();
     const hov = this.hover;
     const hset = hov && this.nb[hov] ? new Set([hov, ...this.nb[hov]]) : null;
-    // Reading the vault's actual current CSS variables (rather than a
-    // hardcoded isDark ? warm-dark : warm-light pair) means the graph
-    // follows whichever theme is really active — the old hardcoded pair
-    // was always the *warm* theme's colors, so plain Dark/Light rendered
-    // with a warm ring/text tint that didn't match either theme.
-    const cs = this.host ? getComputedStyle(this.host) : null;
-    const cssVar = (name: string, fallback: string) => {
-      const v = cs?.getPropertyValue(name).trim();
-      return v || fallback;
-    };
-    const bg = cssVar("--bg", isDark ? "#141414" : "#faf7f2");
-    const baseGray = cssVar("--faint", isDark ? "#736b5a" : "#a2977f");
-    const edgeCol = cssVar("--border", isDark ? "#363636" : "#e2dcc9");
+    const { bg, baseGray, edgeCol, txtCol, fontStack } = this.colors;
     const nodeCol = mixHex(accent, baseGray, 0.5);
     const ring = bg;
-    const txtCol = cssVar("--muted", isDark ? "#8a8a8a" : "#8a7f6a");
-    const fontStack = cs?.fontFamily || "'IBM Plex Sans',sans-serif";
     const lineW = cfg.linkThickness;
 
-    this.links.forEach(([a, b]) => {
-      const A = this.nodes[a],
-        B = this.nodes[b];
-      if (A.hidden || B.hidden) return;
-      const on = !!(hov && (A.id === hov || B.id === hov));
-      const col = on ? accent : edgeCol;
-      ctx.strokeStyle = col;
-      ctx.globalAlpha = hov ? (on ? 0.9 : 0.12) : 0.65;
-      ctx.lineWidth = (on ? 1.6 : 1) * lineW;
-      ctx.beginPath();
-      ctx.moveTo(A.x, A.y);
-      ctx.lineTo(B.x, B.y);
-      ctx.stroke();
-      if (cfg.arrows) {
-        // Arrowhead at the target's edge, pointing from the linking note.
-        const dx = B.x - A.x,
-          dy = B.y - A.y;
-        const d = Math.hypot(dx, dy) || 1;
-        const ux = dx / d,
-          uy = dy / d;
-        const tipX = B.x - ux * (this.radiusOf(B) + 2),
-          tipY = B.y - uy * (this.radiusOf(B) + 2);
-        const size = 5 + 2 * lineW;
-        ctx.fillStyle = col;
+    // Only what's on screen is drawn (plus a margin so labels and big dots
+    // at the edge don't pop in and out).
+    const margin = (140 + 12 * cfg.nodeSize) / Math.min(this.scale, 1) + 12 * cfg.nodeSize;
+    const left = -this.tx / this.scale - margin,
+      top = -this.ty / this.scale - margin,
+      right = (this.w - this.tx) / this.scale + margin,
+      bottom = (this.h - this.ty) / this.scale + margin;
+    const offscreen = (x: number, y: number) => x < left || x > right || y < top || y > bottom;
+
+    // Lines (only those crossing the screen). Each is its own stroke: one
+    // combined path is slower here, since translucent overlapping strokes
+    // force the browser to build a coverage mask for the whole path.
+    ctx.lineCap = "butt";
+    const drawLinks = (lit: boolean) => {
+      ctx.strokeStyle = lit ? accent : edgeCol;
+      ctx.fillStyle = lit ? accent : edgeCol;
+      ctx.globalAlpha = hov ? (lit ? 0.9 : 0.12) : 0.65;
+      ctx.lineWidth = (lit ? 1.6 : 1) * lineW;
+      for (const [a, b] of this.links) {
+        const A = this.nodes[a],
+          B = this.nodes[b];
+        if (A.hidden || B.hidden) continue;
+        if ((A.x < left && B.x < left) || (A.x > right && B.x > right) || (A.y < top && B.y < top) || (A.y > bottom && B.y > bottom)) continue;
+        const on = !!(hov && (A.id === hov || B.id === hov));
+        if (on !== lit) continue;
         ctx.beginPath();
-        ctx.moveTo(tipX, tipY);
-        ctx.lineTo(tipX - ux * size - uy * size * 0.55, tipY - uy * size + ux * size * 0.55);
-        ctx.lineTo(tipX - ux * size + uy * size * 0.55, tipY - uy * size - ux * size * 0.55);
-        ctx.closePath();
-        ctx.fill();
+        ctx.moveTo(A.x, A.y);
+        ctx.lineTo(B.x, B.y);
+        ctx.stroke();
+        if (cfg.arrows) {
+          // Arrowhead at the target's edge, pointing from the linking note.
+          const dx = B.x - A.x,
+            dy = B.y - A.y;
+          const d = Math.hypot(dx, dy) || 1;
+          const ux = dx / d,
+            uy = dy / d;
+          const tipX = B.x - ux * (this.radiusOf(B) + 2),
+            tipY = B.y - uy * (this.radiusOf(B) + 2);
+          const size = 5 + 2 * lineW;
+          ctx.beginPath();
+          ctx.moveTo(tipX, tipY);
+          ctx.lineTo(tipX - ux * size - uy * size * 0.55, tipY - uy * size + ux * size * 0.55);
+          ctx.lineTo(tipX - ux * size + uy * size * 0.55, tipY - uy * size - ux * size * 0.55);
+          ctx.closePath();
+          ctx.fill();
+        }
       }
-    });
+    };
+    drawLinks(false);
+    if (hov) drawLinks(true);
     ctx.globalAlpha = 1;
     const emptyNodeCol = mixHex(nodeCol, bg, 0.4);
     const categoryCol = mixHex(accent, bg, 0.35);
@@ -679,8 +749,12 @@ export class ForceGraph {
     // moves the zoom level where that happens (left = labels stay longer).
     const fadeAt = 0.55 * Math.pow(2, cfg.textFade);
     const labelAlpha = Math.max(0, Math.min(1, (this.scale - fadeAt * 0.8) / (fadeAt * 0.2)));
-    this.nodes.forEach((n) => {
-      if (n.hidden) return;
+    ctx.textAlign = "center";
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = ring;
+    let font = "";
+    for (const n of this.nodes) {
+      if (n.hidden || offscreen(n.x, n.y)) continue;
       const r = this.radiusOf(n);
       const active = n.id === cur;
       const dim = !!(hset && !hset.has(n.id));
@@ -704,22 +778,21 @@ export class ForceGraph {
                     ? emptyNodeCol
                     : nodeCol;
       ctx.fill();
-      if (n.kind !== "phantom") {
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = ring;
-        ctx.stroke();
-      }
+      if (n.kind !== "phantom") ctx.stroke();
       const forced = n.id === hov || active;
       const a = forced ? 1 : labelAlpha;
       if (a > 0.01) {
         ctx.globalAlpha = (dim ? 0.22 : 1) * a;
         ctx.fillStyle = on ? accent : txtCol;
-        ctx.font = (on ? "600 " : n.kind === "category" ? "600 " : "500 ") + "11px " + fontStack;
-        ctx.textAlign = "center";
+        const f = (on ? "600 " : n.kind === "category" ? "600 " : "500 ") + "11px " + fontStack;
+        if (f !== font) {
+          ctx.font = f;
+          font = f;
+        }
         const label = n.title.length > 20 ? n.title.slice(0, 19) + "…" : n.title;
         ctx.fillText(label || "Untitled", n.x, n.y - r - 6);
       }
-    });
+    }
     ctx.globalAlpha = 1;
     ctx.restore();
   }
